@@ -1,15 +1,12 @@
-import heroDubai from './images/hero_dubai_skyline_corporate_1793972136424.jpg';
-import heroExecutive from './images/hero_executive_consulting_1793972136686.jpg';
-import heroDistrict from './images/hero_uae_business_district_1793972136873.jpg';
-import serviceBanking from './images/service_corporate_banking_1793972136605.jpg';
-import logoPng from './images/Simply-Biz-Logo-png_ca8d7e32.png';
-import logoWhite from './images/Simply-Biz-Logo-white_ed8e5b57.png';
+// Verified production assets for Simply Biz
+// Official uploaded logos in public/assets/aistudio/ (available directly on Vercel)
+// High-resolution photography for Dubai corporate architecture & executive boardrooms
 
 export const APP_IMAGES = {
-  heroDubai,
-  heroExecutive,
-  heroDistrict,
-  serviceBanking,
-  logoPng,
-  logoWhite,
+  logoPng: '/assets/aistudio/Simply-Biz-Logo-png_ca8d7e32.png',
+  logoWhite: '/assets/aistudio/Simply-Biz-Logo-white_ed8e5b57.png',
+  heroDubai: 'https://images.unsplash.com/photo-1512453979798-5ea266f8880c?auto=format&fit=crop&w=1920&q=80',
+  heroExecutive: 'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=1920&q=80',
+  heroDistrict: 'https://images.unsplash.com/photo-1580674684081-7617fbf3d745?auto=format&fit=crop&w=1920&q=80',
+  serviceBanking: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=1200&q=80',
 };
