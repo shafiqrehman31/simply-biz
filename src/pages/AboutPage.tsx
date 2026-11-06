@@ -1,5 +1,6 @@
 import React from 'react';
 import { PageRoute, SiteBranding } from '../types';
+import { APP_IMAGES } from '../assets/images';
 import { ShieldCheck, Award, Target, HeartHandshake, CheckCircle2, ArrowRight } from 'lucide-react';
 
 interface AboutPageProps {
@@ -28,7 +29,7 @@ export const AboutPage: React.FC<AboutPageProps> = ({ onNavigate, branding }) =>
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
         <div className="lg:col-span-7 neo-box rounded-3xl overflow-hidden p-2">
           <img
-            src="/images/hero_executive_consulting_1793972136686.jpg"
+            src={APP_IMAGES.heroExecutive}
             alt="Simply Biz Advisory Executive Boardroom"
             className="w-full h-[400px] object-cover rounded-2xl"
           />

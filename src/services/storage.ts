@@ -1,7 +1,8 @@
 import { CMSData, Lead, PipedriveConfig, SiteBranding } from '../types';
+import { APP_IMAGES } from '../assets/images';
 
 const STORAGE_KEYS = {
-  CMS_DATA: 'simplybiz_cms_data_v1',
+  CMS_DATA: 'simplybiz_cms_data_v2',
   LEADS: 'simplybiz_leads_v1',
 };
 
@@ -12,9 +13,9 @@ export const DEFAULT_BRANDING: SiteBranding = {
   sitePhone: '+971 4 582 9100',
   whatsappNumber: '+971 52 710 4488',
   address: 'Level 28, Marina Plaza, Dubai Marina & Downtown Business Bay, Dubai, UAE',
-  logoUrl: '/images/Simply-Biz-Logo-png_ca8d7e32.png',
-  logoWhiteUrl: '/images/Simply-Biz-Logo-white_ed8e5b57.png',
-  faviconUrl: '/images/Simply-Biz-Logo-png_ca8d7e32.png',
+  logoUrl: APP_IMAGES.logoPng,
+  logoWhiteUrl: APP_IMAGES.logoWhite,
+  faviconUrl: APP_IMAGES.logoPng,
   primaryColor: '#00106b',
   accentColor: '#f85508',
 };
@@ -39,7 +40,7 @@ export const DEFAULT_CMS_DATA: CMSData = {
       title: 'Seamless Company Formation & Residence Visas in the UAE',
       highlightText: 'Transparent. Reliable. Compliant.',
       subtitle: 'Incorporate with clarity across 40+ UAE free zones and mainland jurisdictions. Fixed itemized quotes, zero hidden immigration or banking surprises.',
-      imageUrl: '/images/hero_dubai_skyline_corporate_1793972136424.jpg',
+      imageUrl: APP_IMAGES.heroDubai,
       ctaText: 'Explore Setup Options',
       ctaAction: 'services',
       secondaryCtaText: 'Free 15-Min Consultation',
@@ -52,7 +53,7 @@ export const DEFAULT_CMS_DATA: CMSData = {
       title: '100% Foreign Ownership Mainland & Free Zone Solutions',
       highlightText: 'Speed & Regulatory Precision.',
       subtitle: 'From trade name reservation to MOA notarization, Ejari leasing, and VIP biometrics for your Emirates ID in record time.',
-      imageUrl: '/images/hero_executive_consulting_1793972136686.jpg',
+      imageUrl: APP_IMAGES.heroExecutive,
       ctaText: 'Compare Mainland vs Free Zone',
       ctaAction: 'why-us',
       secondaryCtaText: 'Request Itemized Quote',
@@ -65,7 +66,7 @@ export const DEFAULT_CMS_DATA: CMSData = {
       title: 'Investor & Partner Visas with VIP Concierge Processing',
       highlightText: 'Fast-Track UAE Residence.',
       subtitle: 'Establishment cards, 2-year partner visas, 5-year Green Residences, and multi-currency corporate banking assistance.',
-      imageUrl: '/images/hero_uae_business_district_1793972136873.jpg',
+      imageUrl: APP_IMAGES.heroDistrict,
       ctaText: 'Visa Requirements Guide',
       ctaAction: 'services',
       secondaryCtaText: 'Speak to a Specialist',
@@ -351,17 +352,29 @@ export function getCMSData(): CMSData {
       data = { ...DEFAULT_CMS_DATA, ...parsed };
     }
 
-    // Auto-normalize image paths for production deployment
+    // Auto-normalize image paths for production deployment using bundled Vite assets
     if (data.branding) {
-      data.branding.logoUrl = sanitizeImagePath(data.branding.logoUrl) || DEFAULT_BRANDING.logoUrl;
-      data.branding.logoWhiteUrl = sanitizeImagePath(data.branding.logoWhiteUrl) || DEFAULT_BRANDING.logoWhiteUrl;
-      data.branding.faviconUrl = sanitizeImagePath(data.branding.faviconUrl) || DEFAULT_BRANDING.faviconUrl;
+      if (!data.branding.logoUrl || !data.branding.logoUrl.startsWith('data:')) {
+        data.branding.logoUrl = APP_IMAGES.logoPng;
+      }
+      if (!data.branding.logoWhiteUrl || !data.branding.logoWhiteUrl.startsWith('data:')) {
+        data.branding.logoWhiteUrl = APP_IMAGES.logoWhite;
+      }
+      if (!data.branding.faviconUrl || !data.branding.faviconUrl.startsWith('data:')) {
+        data.branding.faviconUrl = APP_IMAGES.logoPng;
+      }
     }
     if (data.heroSlides) {
-      data.heroSlides = data.heroSlides.map((s, idx) => ({
-        ...s,
-        imageUrl: sanitizeImagePath(s.imageUrl) || DEFAULT_CMS_DATA.heroSlides[idx]?.imageUrl || s.imageUrl,
-      }));
+      const defaultImgs = [APP_IMAGES.heroDubai, APP_IMAGES.heroExecutive, APP_IMAGES.heroDistrict];
+      data.heroSlides = data.heroSlides.map((s, idx) => {
+        if (!s.imageUrl || !s.imageUrl.startsWith('data:')) {
+          return {
+            ...s,
+            imageUrl: defaultImgs[idx % defaultImgs.length] || APP_IMAGES.heroDubai,
+          };
+        }
+        return s;
+      });
     }
 
     saveCMSData(data);

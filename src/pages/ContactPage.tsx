@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { PageRoute, SiteBranding, JurisdictionType } from '../types';
 import { addLead } from '../services/storage';
+import { APP_IMAGES } from '../assets/images';
 import { 
   Mail, 
   Phone, 
@@ -380,7 +381,7 @@ export const ContactPage: React.FC<ContactPageProps> = ({
             </h4>
             <div className="rounded-2xl overflow-hidden neo-inset p-1">
               <img
-                src="/images/service_corporate_banking_1793972136605.jpg"
+                src={APP_IMAGES.serviceBanking}
                 alt="Simply Biz Dubai Advisory Office"
                 className="w-full h-44 object-cover rounded-xl"
               />
