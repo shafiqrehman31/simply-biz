@@ -1,0 +1,90 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --brand-navy: #00106b;
+    --brand-orange: #f85508;
+    --neo-bg: #eef3f8;
+    --neo-shadow-light: #ffffff;
+    --neo-shadow-dark: #cbd5e1;
+  }
+
+  body {
+    font-family: 'Balke Helvetica', 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    background-color: #f0f4f8;
+    color: #1e293b;
+  }
+}
+
+/* Tactile Neomorphism Utilities */
+.neo-box {
+  background: #f0f4f8;
+  box-shadow: 8px 8px 18px rgba(166, 178, 195, 0.4), -8px -8px 18px rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+}
+
+.neo-box-sm {
+  background: #f0f4f8;
+  box-shadow: 4px 4px 10px rgba(166, 178, 195, 0.35), -4px -4px 10px rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+}
+
+.neo-box-hover {
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.neo-box-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 12px 12px 24px rgba(166, 178, 195, 0.48), -10px -10px 22px rgba(255, 255, 255, 0.95);
+}
+
+.neo-inset {
+  background: #ecf1f6;
+  box-shadow: inset 4px 4px 8px rgba(166, 178, 195, 0.35), inset -4px -4px 8px rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+.neo-inset-sm {
+  background: #ecf1f6;
+  box-shadow: inset 2px 2px 5px rgba(166, 178, 195, 0.3), inset -2px -2px 5px rgba(255, 255, 255, 0.85);
+}
+
+.neo-btn-primary {
+  background: linear-gradient(135deg, #00106b 0%, #001a9c 100%);
+  box-shadow: 5px 5px 14px rgba(0, 16, 107, 0.25), -4px -4px 12px rgba(255, 255, 255, 0.9);
+  color: #ffffff;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.neo-btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 7px 7px 18px rgba(0, 16, 107, 0.35), -4px -4px 12px rgba(255, 255, 255, 0.95);
+}
+.neo-btn-primary:active {
+  transform: translateY(1px);
+  box-shadow: inset 3px 3px 6px rgba(0, 8, 55, 0.4);
+}
+
+.neo-btn-orange {
+  background: linear-gradient(135deg, #f85508 0%, #ff6b26 100%);
+  box-shadow: 5px 5px 14px rgba(248, 85, 8, 0.3), -4px -4px 12px rgba(255, 255, 255, 0.9);
+  color: #ffffff;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.neo-btn-orange:hover {
+  transform: translateY(-1px);
+  box-shadow: 7px 7px 18px rgba(248, 85, 8, 0.4), -4px -4px 12px rgba(255, 255, 255, 0.95);
+}
+
+.neo-btn-neutral {
+  background: #f0f4f8;
+  box-shadow: 4px 4px 10px rgba(166, 178, 195, 0.35), -4px -4px 10px rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  color: #00106b;
+  transition: all 0.2s ease;
+}
+.neo-btn-neutral:hover {
+  background: #f8fafc;
+  box-shadow: 6px 6px 14px rgba(166, 178, 195, 0.42), -5px -5px 12px rgba(255, 255, 255, 0.95);
+}
+.neo-btn-neutral:active {
+  box-shadow: inset 2px 2px 5px rgba(166, 178, 195, 0.35), inset -2px -2px 5px rgba(255, 255, 255, 0.85);
+}
