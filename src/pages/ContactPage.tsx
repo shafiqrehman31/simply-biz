@@ -380,7 +380,7 @@ export const ContactPage: React.FC<ContactPageProps> = ({
             </h4>
             <div className="rounded-2xl overflow-hidden neo-inset p-1">
               <img
-                src="/src/assets/images/service_corporate_banking_1793972136605.jpg"
+                src="/images/service_corporate_banking_1793972136605.jpg"
                 alt="Simply Biz Dubai Advisory Office"
                 className="w-full h-44 object-cover rounded-xl"
               />

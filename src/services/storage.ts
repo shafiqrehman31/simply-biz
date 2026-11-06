@@ -12,9 +12,9 @@ export const DEFAULT_BRANDING: SiteBranding = {
   sitePhone: '+971 4 582 9100',
   whatsappNumber: '+971 52 710 4488',
   address: 'Level 28, Marina Plaza, Dubai Marina & Downtown Business Bay, Dubai, UAE',
-  logoUrl: '/public/assets/aistudio/Simply-Biz-Logo-png_ca8d7e32.png',
-  logoWhiteUrl: '/public/assets/aistudio/Simply-Biz-Logo-white_ed8e5b57.png',
-  faviconUrl: '/public/assets/aistudio/Simply-Biz-Logo-png_ca8d7e32.png',
+  logoUrl: '/images/Simply-Biz-Logo-png_ca8d7e32.png',
+  logoWhiteUrl: '/images/Simply-Biz-Logo-white_ed8e5b57.png',
+  faviconUrl: '/images/Simply-Biz-Logo-png_ca8d7e32.png',
   primaryColor: '#00106b',
   accentColor: '#f85508',
 };
@@ -39,7 +39,7 @@ export const DEFAULT_CMS_DATA: CMSData = {
       title: 'Seamless Company Formation & Residence Visas in the UAE',
       highlightText: 'Transparent. Reliable. Compliant.',
       subtitle: 'Incorporate with clarity across 40+ UAE free zones and mainland jurisdictions. Fixed itemized quotes, zero hidden immigration or banking surprises.',
-      imageUrl: '/src/assets/images/hero_dubai_skyline_corporate_1793972136424.jpg',
+      imageUrl: '/images/hero_dubai_skyline_corporate_1793972136424.jpg',
       ctaText: 'Explore Setup Options',
       ctaAction: 'services',
       secondaryCtaText: 'Free 15-Min Consultation',
@@ -52,7 +52,7 @@ export const DEFAULT_CMS_DATA: CMSData = {
       title: '100% Foreign Ownership Mainland & Free Zone Solutions',
       highlightText: 'Speed & Regulatory Precision.',
       subtitle: 'From trade name reservation to MOA notarization, Ejari leasing, and VIP biometrics for your Emirates ID in record time.',
-      imageUrl: '/src/assets/images/hero_executive_consulting_1793972136686.jpg',
+      imageUrl: '/images/hero_executive_consulting_1793972136686.jpg',
       ctaText: 'Compare Mainland vs Free Zone',
       ctaAction: 'why-us',
       secondaryCtaText: 'Request Itemized Quote',
@@ -65,7 +65,7 @@ export const DEFAULT_CMS_DATA: CMSData = {
       title: 'Investor & Partner Visas with VIP Concierge Processing',
       highlightText: 'Fast-Track UAE Residence.',
       subtitle: 'Establishment cards, 2-year partner visas, 5-year Green Residences, and multi-currency corporate banking assistance.',
-      imageUrl: '/src/assets/images/hero_uae_business_district_1793972136873.jpg',
+      imageUrl: '/images/hero_uae_business_district_1793972136873.jpg',
       ctaText: 'Visa Requirements Guide',
       ctaAction: 'services',
       secondaryCtaText: 'Speak to a Specialist',
@@ -329,16 +329,43 @@ export const INITIAL_LEADS: Lead[] = [
   },
 ];
 
+// Helper to normalize production image paths
+export function sanitizeImagePath(p: string | undefined): string {
+  if (!p) return '';
+  return p
+    .replace(/^\/public\/assets\/aistudio\//, '/images/')
+    .replace(/^\/src\/assets\/images\//, '/images/')
+    .replace(/^\/public\/images\//, '/images/')
+    .replace(/^\/public\//, '/');
+}
+
 // Helper to get CMS Data
 export function getCMSData(): CMSData {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.CMS_DATA);
+    let data: CMSData;
     if (!raw) {
-      saveCMSData(DEFAULT_CMS_DATA);
-      return DEFAULT_CMS_DATA;
+      data = DEFAULT_CMS_DATA;
+    } else {
+      const parsed = JSON.parse(raw);
+      data = { ...DEFAULT_CMS_DATA, ...parsed };
     }
-    const parsed = JSON.parse(raw);
-    return { ...DEFAULT_CMS_DATA, ...parsed };
+
+    // Auto-normalize image paths for production deployment
+    if (data.branding) {
+      data.branding.logoUrl = sanitizeImagePath(data.branding.logoUrl) || DEFAULT_BRANDING.logoUrl;
+      data.branding.logoWhiteUrl = sanitizeImagePath(data.branding.logoWhiteUrl) || DEFAULT_BRANDING.logoWhiteUrl;
+      data.branding.faviconUrl = sanitizeImagePath(data.branding.faviconUrl) || DEFAULT_BRANDING.faviconUrl;
+    }
+    if (data.heroSlides) {
+      data.heroSlides = data.heroSlides.map((s, idx) => ({
+        ...s,
+        imageUrl: sanitizeImagePath(s.imageUrl) || DEFAULT_CMS_DATA.heroSlides[idx]?.imageUrl || s.imageUrl,
+      }));
+    }
+
+    saveCMSData(data);
+    return data;
   } catch (err) {
     console.error('Failed reading CMS data:', err);
     return DEFAULT_CMS_DATA;
