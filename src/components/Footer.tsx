@@ -25,10 +25,10 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, branding }) => {
                 <img
                   src={branding.logoWhiteUrl}
                   alt={branding.siteName}
-                  className="h-18 sm:h-20 w-auto max-h-20 object-contain drop-shadow-sm"
+                  className="h-11 sm:h-12 w-auto max-h-12 object-contain drop-shadow-sm"
                 />
               ) : (
-                <span className="text-3xl font-extrabold tracking-tight text-white">
+                <span className="text-2xl font-extrabold tracking-tight text-white">
                   Simply<span className="text-[#f85508]">Biz</span>
                 </span>
               )}

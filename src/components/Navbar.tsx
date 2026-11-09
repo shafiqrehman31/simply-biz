@@ -32,9 +32,9 @@ export const Navbar: React.FC<NavbarProps> = ({
   return (
     <header className="sticky top-0 z-50 bg-[#f0f4f8]/95 backdrop-blur-md border-b border-white/60 transition-colors shadow-xs">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-24 md:h-28 gap-8">
+        <div className="flex items-center justify-between h-20 sm:h-22 gap-8">
           
-          {/* Zone 1: Brand Wordmark / Double-Sized Professional Logo on transparent background */}
+          {/* Zone 1: Brand Wordmark / Professional Trimmed Logo on transparent background */}
           <div className="flex items-center shrink-0">
             <button
               onClick={() => handleNavClick('home')}
@@ -45,14 +45,14 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <img
                   src={branding.logoUrl}
                   alt={branding.siteName}
-                  className="h-18 sm:h-20 md:h-22 w-auto max-h-22 object-contain transition-transform group-hover:scale-102 drop-shadow-xs"
+                  className="h-11 sm:h-12 md:h-13 w-auto max-h-13 object-contain transition-transform group-hover:scale-102 drop-shadow-xs"
                 />
               ) : (
-                <div className="flex items-center gap-3">
-                  <div className="w-14 h-14 rounded-2xl neo-box flex items-center justify-center font-bold text-2xl text-[#00106b]">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-11 h-11 rounded-xl neo-box flex items-center justify-center font-bold text-xl text-[#00106b]">
                     SB
                   </div>
-                  <span className="text-3xl font-extrabold tracking-tight text-[#00106b]">
+                  <span className="text-2xl font-extrabold tracking-tight text-[#00106b]">
                     Simply<span className="text-[#f85508]">Biz</span>
                   </span>
                 </div>
