@@ -51,7 +51,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <img
                   src={logoSrc}
                   alt={branding.siteName}
-                  className="h-10 sm:h-11 md:h-12 lg:h-[120px] w-auto max-w-[120px] sm:max-w-[140px] md:max-w-[160px] object-contain transition-transform group-hover:scale-105 drop-shadow-xs"
+                  className="h-10 sm:h-111 md:h-12 lg:h-[120px] w-auto max-w-[120px] sm:max-w-[140px] md:max-w-[160px] object-contain transition-transform group-hover:scale-105 drop-shadow-xs"
                   style={{ aspectRatio: '1342 / 772' }}
                 />
               ) : (
