@@ -2,7 +2,7 @@ import { CMSData, Lead, PipedriveConfig, SiteBranding } from '../types';
 import { APP_IMAGES } from '../assets/images';
 
 const STORAGE_KEYS = {
-  CMS_DATA: 'simplybiz_cms_data_v3',
+  CMS_DATA: 'simplybiz_cms_data_v4',
   LEADS: 'simplybiz_leads_v1',
 };
 

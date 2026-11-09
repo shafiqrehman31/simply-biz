@@ -1,6 +1,7 @@
 import React from 'react';
 import { PageRoute, SiteBranding } from '../types';
 import { Mail, Phone, MapPin, ArrowUpRight, ShieldCheck } from 'lucide-react';
+import { SIMPLY_BIZ_LOGO_WHITE } from '../assets/logoBase64';
 
 interface FooterProps {
   onNavigate: (page: PageRoute) => void;
@@ -13,6 +14,11 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, branding }) => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  // Robust logo resolver: Uses custom CMS data URI if uploaded, otherwise uses the embedded 0-margin high-res white logo
+  const logoWhiteSrc = (branding.logoWhiteUrl && (branding.logoWhiteUrl.startsWith('data:') || branding.logoWhiteUrl.startsWith('blob:')))
+    ? branding.logoWhiteUrl
+    : SIMPLY_BIZ_LOGO_WHITE;
+
   return (
     <footer className="bg-[#00106b] text-slate-300 pt-16 pb-12 border-t border-slate-800">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -21,11 +27,12 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, branding }) => {
           {/* Col 1 & 2: Brand & Mission */}
           <div className="lg:col-span-2 space-y-4">
             <div className="flex items-center gap-3">
-              {branding.logoWhiteUrl ? (
+              {logoWhiteSrc ? (
                 <img
-                  src={branding.logoWhiteUrl}
+                  src={logoWhiteSrc}
                   alt={branding.siteName}
-                  className="h-11 sm:h-12 w-auto max-h-12 object-contain drop-shadow-sm"
+                  className="h-10 sm:h-11 md:h-12 w-auto max-w-[150px] object-contain drop-shadow-sm"
+                  style={{ aspectRatio: '1342 / 772' }}
                 />
               ) : (
                 <span className="text-2xl font-extrabold tracking-tight text-white">

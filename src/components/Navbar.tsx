@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { PageRoute, SiteBranding } from '../types';
 import { Menu, X, ArrowUpRight, ShieldCheck, Settings } from 'lucide-react';
+import { SIMPLY_BIZ_LOGO_COLOR } from '../assets/logoBase64';
 
 interface NavbarProps {
   currentPage: PageRoute;
@@ -14,6 +15,11 @@ export const Navbar: React.FC<NavbarProps> = ({
   branding,
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Robust logo resolver: Uses custom CMS data URI if uploaded, otherwise uses the embedded 0-margin high-res logo
+  const logoSrc = (branding.logoUrl && (branding.logoUrl.startsWith('data:') || branding.logoUrl.startsWith('blob:')))
+    ? branding.logoUrl
+    : SIMPLY_BIZ_LOGO_COLOR;
 
   const navLinks: { label: string; route: PageRoute }[] = [
     { label: 'Home', route: 'home' },
@@ -34,18 +40,19 @@ export const Navbar: React.FC<NavbarProps> = ({
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-20 sm:h-22 gap-8">
           
-          {/* Zone 1: Brand Wordmark / Professional Trimmed Logo on transparent background */}
+          {/* Zone 1: Standard Brand Logo with perfect responsive sizing across mobile, tablet & desktop */}
           <div className="flex items-center shrink-0">
             <button
               onClick={() => handleNavClick('home')}
               className="flex items-center gap-3 focus:outline-none group text-left cursor-pointer"
               title="Simply Biz - Home"
             >
-              {branding.logoUrl ? (
+              {logoSrc ? (
                 <img
-                  src={branding.logoUrl}
+                  src={logoSrc}
                   alt={branding.siteName}
-                  className="h-11 sm:h-12 md:h-13 w-auto max-h-13 object-contain transition-transform group-hover:scale-102 drop-shadow-xs"
+                  className="h-10 sm:h-11 md:h-12 lg:h-[52px] w-auto max-w-[120px] sm:max-w-[140px] md:max-w-[160px] object-contain transition-transform group-hover:scale-105 drop-shadow-xs"
+                  style={{ aspectRatio: '1342 / 772' }}
                 />
               ) : (
                 <div className="flex items-center gap-2.5">
