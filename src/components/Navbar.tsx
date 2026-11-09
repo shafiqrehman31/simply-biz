@@ -7,12 +7,14 @@ interface NavbarProps {
   currentPage: PageRoute;
   onNavigate: (page: PageRoute) => void;
   branding: SiteBranding;
+  onOpenQuoteModal?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
   currentPage,
   onNavigate,
   branding,
+  onOpenQuoteModal,
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -47,14 +49,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               className="flex items-center gap-3 focus:outline-none group text-left cursor-pointer"
               title="Simply Biz - Home"
             >
-              {logoSrc ? (
-                <img
-                  src={logoSrc}
-                  alt={branding.siteName}
-                  className="h-110 sm:h-111 md:h-12 lg:h-[120px] w-auto max-w-[120px] sm:max-w-[140px] md:max-w-[160px] object-contain transition-transform group-hover:scale-105 drop-shadow-xs"
-                  style={{ aspectRatio: '1342 / 772' }}
-                />
-              ) : (
+{logoSrc ? ( <img src={logoSrc} alt={branding.siteName} className="h-110 sm:h-111 md:h-12 lg:h-[120px] w-auto max-w-[120px] sm:max-w-[140px] md:max-w-[160px] object-contain transition-transform group-hover:scale-105 drop-shadow-xs" style={{ aspectRatio: '1342 / 772' }} /> ) : (
                 <div className="flex items-center gap-2.5">
                   <div className="w-11 h-11 rounded-xl neo-box flex items-center justify-center font-bold text-xl text-[#00106b]">
                     SB
@@ -93,7 +88,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Zone 3: 1 Primary Action (Admin button removed as requested) */}
           <div className="hidden lg:flex items-center gap-3 shrink-0">
             <button
-              onClick={() => handleNavClick('contact')}
+              onClick={onOpenQuoteModal ? onOpenQuoteModal : () => handleNavClick('contact')}
               className="neo-btn-primary px-6 py-3 rounded-xl text-sm font-bold flex items-center gap-2 whitespace-nowrap shadow-sm cursor-pointer"
             >
               <span>Get Free Quote</span>
@@ -135,8 +130,15 @@ export const Navbar: React.FC<NavbarProps> = ({
           })}
           <div className="pt-3">
             <button
-              onClick={() => handleNavClick('contact')}
-              className="w-full neo-btn-primary py-3 rounded-xl text-center font-semibold text-sm flex items-center justify-center gap-2"
+              onClick={() => {
+                if (onOpenQuoteModal) {
+                  onOpenQuoteModal();
+                  setMobileMenuOpen(false);
+                } else {
+                  handleNavClick('contact');
+                }
+              }}
+              className="w-full neo-btn-primary py-3 rounded-xl text-center font-semibold text-sm flex items-center justify-center gap-2 cursor-pointer"
             >
               <span>Get Free Quote</span>
               <ArrowUpRight className="w-4 h-4 text-[#f85508]" />

@@ -4,9 +4,15 @@ import { SiteBranding } from '../types';
 
 interface FloatingActionsProps {
   branding: SiteBranding;
+  onToggleWhatsAppChatbot?: () => void;
+  isChatbotOpen?: boolean;
 }
 
-export const FloatingActions: React.FC<FloatingActionsProps> = ({ branding }) => {
+export const FloatingActions: React.FC<FloatingActionsProps> = ({ 
+  branding,
+  onToggleWhatsAppChatbot,
+  isChatbotOpen,
+}) => {
   const [showScrollTop, setShowScrollTop] = useState(false);
 
   useEffect(() => {
@@ -53,31 +59,42 @@ export const FloatingActions: React.FC<FloatingActionsProps> = ({ branding }) =>
         </div>
       </button>
 
-      {/* Floating WhatsApp Action Button */}
-      <a
-        href={whatsappUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label="Chat with Simply Biz on WhatsApp"
-        className="pointer-events-auto group flex items-center gap-3 p-3 sm:px-4 sm:py-3 rounded-full bg-[#25D366] hover:bg-[#20bd5a] text-white shadow-xl hover:shadow-2xl transition-all duration-200 cursor-pointer hover:scale-103 active:scale-97 border-2 border-white/90"
+      {/* Floating WhatsApp Chatbot Trigger / Action Button */}
+      <button
+        type="button"
+        onClick={() => {
+          if (onToggleWhatsAppChatbot) {
+            onToggleWhatsAppChatbot();
+          } else {
+            window.open(whatsappUrl, '_blank');
+          }
+        }}
+        aria-label="Chat with Simply Biz WhatsApp automated advisor"
+        className={`pointer-events-auto group flex items-center gap-3 p-3 sm:px-4 sm:py-3 rounded-full text-white shadow-xl hover:shadow-2xl transition-all duration-200 cursor-pointer hover:scale-105 active:scale-95 border-2 border-white/90 ${
+          isChatbotOpen ? 'bg-[#075E54] ring-4 ring-emerald-300' : 'bg-[#25D366] hover:bg-[#20bd5a]'
+        }`}
       >
         {/* WhatsApp Icon */}
         <div className="relative flex items-center justify-center">
           <MessageCircle className="w-6 h-6 fill-white text-[#25D366]" />
-          <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-300 rounded-full animate-ping" />
-          <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-white rounded-full" />
+          {!isChatbotOpen && (
+            <>
+              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-300 rounded-full animate-ping" />
+              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-white rounded-full" />
+            </>
+          )}
         </div>
 
         {/* Text Label on desktop */}
         <div className="hidden sm:flex flex-col text-left pr-1">
           <span className="text-[10px] font-bold tracking-wider uppercase opacity-90 leading-tight">
-            WhatsApp Online
+            {isChatbotOpen ? 'Active Chat' : 'WhatsApp AI'}
           </span>
           <span className="text-xs font-extrabold leading-tight">
-            Chat with Advisor
+            {isChatbotOpen ? 'Close Concierge' : 'Chatbot Advisor'}
           </span>
         </div>
-      </a>
+      </button>
     </aside>
   );
 };

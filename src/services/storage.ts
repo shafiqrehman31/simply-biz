@@ -1,5 +1,7 @@
 import { CMSData, Lead, PipedriveConfig, SiteBranding } from '../types';
 import { APP_IMAGES } from '../assets/images';
+import { sendQuoteEmails } from './emailService';
+import type { EmailLog } from '../types';
 
 const STORAGE_KEYS = {
   CMS_DATA: 'simplybiz_cms_data_v4',
@@ -418,8 +420,12 @@ export function saveLeads(leads: Lead[]): void {
   }
 }
 
-// Helper to add new Lead and trigger Pipedrive sync
-export async function addLead(newLead: Omit<Lead, 'id' | 'createdAt' | 'status' | 'pipedriveStatus'>): Promise<{ lead: Lead; pipedriveResult: { success: boolean; message: string; dealId?: string } }> {
+// Helper to add new Lead, dispatch confirmation & receiver emails, and trigger Pipedrive sync
+export async function addLead(newLead: Omit<Lead, 'id' | 'createdAt' | 'status' | 'pipedriveStatus'>): Promise<{ 
+  lead: Lead; 
+  pipedriveResult: { success: boolean; message: string; dealId?: string };
+  emailsSent: EmailLog[];
+}> {
   const cms = getCMSData();
   const leads = getLeads();
 
@@ -432,7 +438,15 @@ export async function addLead(newLead: Omit<Lead, 'id' | 'createdAt' | 'status' 
     pipedriveStatus: 'pending',
   };
 
-  // Check if autoSync is enabled
+  // 1. Dispatch official Customer Confirmation Email and Admin Notification Email
+  let emailsSent: EmailLog[] = [];
+  try {
+    emailsSent = sendQuoteEmails(lead, cms.branding);
+  } catch (emailErr) {
+    console.error('Failed to dispatch quote emails:', emailErr);
+  }
+
+  // 2. Check if Pipedrive autoSync is enabled
   let pipedriveResult: {
     success: boolean;
     message: string;
@@ -453,10 +467,17 @@ export async function addLead(newLead: Omit<Lead, 'id' | 'createdAt' | 'status' 
     }
   }
 
+  // 3. Persist to storage
   const updatedLeads = [lead, ...leads];
   saveLeads(updatedLeads);
 
-  return { lead, pipedriveResult };
+  // 4. Dispatch global event so Admin page and other tabs react immediately without refresh
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('simplybiz_lead_added', { detail: { lead, emailsSent } }));
+    window.dispatchEvent(new Event('storage'));
+  }
+
+  return { lead, pipedriveResult, emailsSent };
 }
 
 // Pipedrive CRM API Synchronization

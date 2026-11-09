@@ -26,9 +26,16 @@ import {
 interface HomePageProps {
   cmsData: CMSData;
   onNavigate: (page: PageRoute) => void;
+  onOpenQuoteModal?: () => void;
+  onOpenWhatsAppChatbot?: () => void;
 }
 
-export const HomePage: React.FC<HomePageProps> = ({ cmsData, onNavigate }) => {
+export const HomePage: React.FC<HomePageProps> = ({ 
+  cmsData, 
+  onNavigate,
+  onOpenQuoteModal,
+  onOpenWhatsAppChatbot,
+}) => {
   const [openFaqId, setOpenFaqId] = useState<string | null>('faq-1');
   const [activeTestimonialIdx, setActiveTestimonialIdx] = useState(0);
 
@@ -60,7 +67,11 @@ export const HomePage: React.FC<HomePageProps> = ({ cmsData, onNavigate }) => {
   return (
     <div className="space-y-20 pb-20">
       {/* Hero Carousel */}
-      <HeroCarousel slides={cmsData.heroSlides} onNavigate={onNavigate} />
+      <HeroCarousel 
+        slides={cmsData.heroSlides} 
+        onNavigate={onNavigate} 
+        onOpenQuoteModal={onOpenQuoteModal}
+      />
 
       {/* Trust & Proof Strip (Tactile Neomorphic Bar) */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-10 relative z-30">
@@ -107,33 +118,40 @@ export const HomePage: React.FC<HomePageProps> = ({ cmsData, onNavigate }) => {
         </div>
       </div>
 
-      {/* WhatsApp Quick Connect Banner on Home Screen */}
+      {/* WhatsApp Automated Chatbot Quick Connect Banner on Home Screen */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="neo-box rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-4 border border-white/80 bg-gradient-to-r from-emerald-50/60 via-[#f0f4f8] to-slate-50">
+        <div className="neo-box rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-4 border border-white/80 bg-gradient-to-r from-emerald-50/70 via-[#f0f4f8] to-slate-50 shadow-sm">
           <div className="flex items-center gap-3.5 text-left">
-            <div className="w-11 h-11 rounded-xl bg-[#25D366] text-white flex items-center justify-center shrink-0 shadow-md">
-              <MessageCircle className="w-6 h-6 fill-white text-[#25D366]" />
+            <div className="w-12 h-12 rounded-2xl bg-[#075E54] text-white flex items-center justify-center shrink-0 shadow-md relative">
+              <MessageCircle className="w-6 h-6 fill-white text-[#075E54]" />
+              <span className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-400 rounded-full border-2 border-white animate-pulse" />
             </div>
             <div>
-              <div className="text-sm font-bold text-[#00106b]">
-                Need Immediate Answers on UAE Jurisdiction or Visa Quotas?
+              <div className="text-sm font-bold text-[#00106b] flex items-center gap-2">
+                <span>Need Instant Answers on UAE Jurisdictions, Visas & Costs?</span>
+                <span className="hidden sm:inline-block text-[10px] bg-emerald-100 text-emerald-800 font-extrabold uppercase px-2 py-0.5 rounded-full">
+                  Auto-Reply Chatbot
+                </span>
               </div>
-              <div className="text-xs text-slate-500">
-                Direct chat with our Dubai PRO concierge on WhatsApp ({cmsData.branding.whatsappNumber}). Fast 5-minute response.
+              <div className="text-xs text-slate-500 mt-0.5">
+                Our automated WhatsApp concierge replies in seconds with Free Zone comparisons, visa rules, and itemized quotes.
               </div>
             </div>
           </div>
-          <a
-            href={`https://wa.me/${cmsData.branding.whatsappNumber.replace(/[^0-9]/g, '') || '971527104488'}?text=${encodeURIComponent(
-              'Hello Simply Biz Team, I am browsing your website and would like an itemized quote for UAE company formation.'
-            )}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="w-full sm:w-auto px-6 py-2.5 rounded-xl text-xs font-bold bg-[#25D366] hover:bg-[#20bd5a] text-white flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer whitespace-nowrap hover:scale-102 shrink-0"
+          <button
+            type="button"
+            onClick={() => {
+              if (onOpenWhatsAppChatbot) {
+                onOpenWhatsAppChatbot();
+              } else {
+                window.open(`https://wa.me/${cmsData.branding.whatsappNumber.replace(/[^0-9]/g, '') || '971527104488'}`, '_blank');
+              }
+            }}
+            className="w-full sm:w-auto px-6 py-3 rounded-xl text-xs font-bold bg-[#25D366] hover:bg-[#20bd5a] text-white flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer whitespace-nowrap hover:scale-102 shrink-0 border border-white/40"
           >
             <MessageCircle className="w-4 h-4 fill-white text-[#25D366]" />
-            <span>Chat on WhatsApp</span>
-          </a>
+            <span>Open WhatsApp Chatbot</span>
+          </button>
         </div>
       </div>
 
@@ -427,22 +445,25 @@ export const HomePage: React.FC<HomePageProps> = ({ cmsData, onNavigate }) => {
           </div>
           <div className="flex flex-col sm:flex-row items-center gap-3 shrink-0 w-full sm:w-auto">
             <button
-              onClick={() => onNavigate('contact')}
+              onClick={onOpenQuoteModal ? onOpenQuoteModal : () => onNavigate('contact')}
               className="w-full sm:w-auto neo-btn-orange px-6 py-3.5 rounded-xl font-bold text-sm text-center shadow-lg cursor-pointer"
             >
               Request Free Consultation
             </button>
-            <a
-              href={`https://wa.me/${cmsData.branding.whatsappNumber.replace(/[^0-9]/g, '') || '971527104488'}?text=${encodeURIComponent(
-                'Hello Simply Biz Team, I am requesting a consultation for setting up my UAE business.'
-              )}`}
-              target="_blank"
-              rel="noopener noreferrer"
+            <button
+              type="button"
+              onClick={() => {
+                if (onOpenWhatsAppChatbot) {
+                  onOpenWhatsAppChatbot();
+                } else {
+                  window.open(`https://wa.me/${cmsData.branding.whatsappNumber.replace(/[^0-9]/g, '') || '971527104488'}`, '_blank');
+                }
+              }}
               className="w-full sm:w-auto px-5 py-3.5 rounded-xl font-bold text-sm bg-[#25D366] hover:bg-[#20bd5a] text-white flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer whitespace-nowrap"
             >
               <MessageCircle className="w-4 h-4 fill-white text-[#25D366]" />
-              <span>WhatsApp Direct</span>
-            </a>
+              <span>WhatsApp Chatbot</span>
+            </button>
             <button
               onClick={() => onNavigate('services')}
               className="w-full sm:w-auto neo-btn-neutral px-5 py-3.5 rounded-xl font-bold text-sm text-center cursor-pointer"

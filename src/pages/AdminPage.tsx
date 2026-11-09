@@ -9,7 +9,8 @@ import {
   FAQItem, 
   TestimonialItem,
   AdminUser,
-  PageRoute
+  PageRoute,
+  EmailLog
 } from '../types';
 import { 
   getLeads, 
@@ -19,6 +20,7 @@ import {
   syncLeadToPipedrive,
   DEFAULT_CMS_DATA 
 } from '../services/storage';
+import { getEmailLogs, getEmailLogsForLead } from '../services/emailService';
 import { 
   Users, 
   Sliders, 
@@ -46,7 +48,8 @@ import {
   Unlock,
   LogOut,
   AlertTriangle,
-  ArrowLeft
+  ArrowLeft,
+  Mail
 } from 'lucide-react';
 
 interface AdminPageProps {
@@ -222,11 +225,56 @@ export const AdminPage: React.FC<AdminPageProps> = ({
     setLoginPassword('');
   };
 
-  const [activeTab, setActiveTab] = useState<'leads' | 'pipedrive' | 'branding' | 'cms' | 'users'>('leads');
+  const [activeTab, setActiveTab] = useState<'leads' | 'pipedrive' | 'branding' | 'cms' | 'users' | 'emails'>('leads');
   const [leads, setLeads] = useState<Lead[]>(getLeads());
+  const [emailLogs, setEmailLogs] = useState<EmailLog[]>(getEmailLogs());
+  const [selectedEmailPreview, setSelectedEmailPreview] = useState<EmailLog | null>(null);
+  const [isRefreshingLeads, setIsRefreshingLeads] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('All');
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+
+  // Real-time synchronization: Instantly update leads table & emails whenever a customer submits a quote anywhere
+  useEffect(() => {
+    const handleLeadAdded = (e: any) => {
+      const updatedLeads = getLeads();
+      setLeads(updatedLeads);
+      setEmailLogs(getEmailLogs());
+      const leadName = e?.detail?.lead?.name || 'New Prospect';
+      setSaveSuccessMessage(`🔔 New Quote Received from ${leadName}! Form entry added to Leads.`);
+      setTimeout(() => setSaveSuccessMessage(null), 5000);
+    };
+
+    const handleEmailsSent = () => {
+      setEmailLogs(getEmailLogs());
+    };
+
+    const handleStorageChange = () => {
+      setLeads(getLeads());
+      setEmailLogs(getEmailLogs());
+    };
+
+    window.addEventListener('simplybiz_lead_added', handleLeadAdded);
+    window.addEventListener('simplybiz_emails_sent', handleEmailsSent);
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      window.removeEventListener('simplybiz_lead_added', handleLeadAdded);
+      window.removeEventListener('simplybiz_emails_sent', handleEmailsSent);
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
+
+  const handleManualRefreshLeads = () => {
+    setIsRefreshingLeads(true);
+    setTimeout(() => {
+      setLeads(getLeads());
+      setEmailLogs(getEmailLogs());
+      setIsRefreshingLeads(false);
+      setSaveSuccessMessage('✓ Inquiries & Leads successfully refreshed from database.');
+      setTimeout(() => setSaveSuccessMessage(null), 3000);
+    }, 400);
+  };
 
   // Local draft states
   const [brandingDraft, setBrandingDraft] = useState<SiteBranding>(cmsData.branding);
@@ -619,6 +667,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
       <div className="flex flex-wrap items-center gap-2">
         {[
           { id: 'leads', label: `Inquiries & Leads (${leads.length})`, icon: Users },
+          { id: 'emails', label: `Dispatched Emails (${emailLogs.length})`, icon: Mail },
           { id: 'pipedrive', label: 'Pipedrive CRM Settings', icon: Database },
           { id: 'branding', label: 'Logos & Branding', icon: Image },
           { id: 'cms', label: 'Content Management (CMS)', icon: Sliders },
@@ -661,6 +710,16 @@ export const AdminPage: React.FC<AdminPageProps> = ({
             </div>
 
             <div className="flex items-center gap-3 w-full md:w-auto justify-end">
+              <button
+                onClick={handleManualRefreshLeads}
+                disabled={isRefreshingLeads}
+                className="neo-btn-neutral px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                title="Refresh leads and quote submissions from database"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 text-[#00106b] ${isRefreshingLeads ? 'animate-spin' : ''}`} />
+                <span>Refresh Leads</span>
+              </button>
+
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
@@ -798,6 +857,51 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                       {selectedLead.message || 'No additional message provided.'}
                     </div>
                   </div>
+
+                  {/* Dispatched Emails Verification Box */}
+                  <div className="pt-2 border-t border-slate-200">
+                    <div className="flex items-center justify-between mb-2">
+                      <strong className="text-xs font-bold text-[#00106b] flex items-center gap-1.5">
+                        <Mail className="w-3.5 h-3.5 text-[#f85508]" />
+                        <span>Dispatched Email Notifications:</span>
+                      </strong>
+                      <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full">
+                        Delivered
+                      </span>
+                    </div>
+
+                    <div className="space-y-2">
+                      {getEmailLogsForLead(selectedLead.id).length > 0 ? (
+                        getEmailLogsForLead(selectedLead.id).map((emailLog) => (
+                          <div 
+                            key={emailLog.id}
+                            className="p-2.5 rounded-xl neo-inset bg-slate-50 border border-slate-200 flex items-center justify-between text-xs"
+                          >
+                            <div className="truncate pr-2">
+                              <div className="font-bold text-[#00106b] truncate">
+                                {emailLog.type === 'customer_confirmation' ? '👤 Customer Confirmation' : '🏢 Receiver Lead Alert'}
+                              </div>
+                              <div className="text-[10px] text-slate-500 truncate">
+                                To: {emailLog.recipient}
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedEmailPreview(emailLog)}
+                              className="neo-btn-neutral px-2.5 py-1 rounded-lg text-[10px] font-bold text-[#00106b] flex items-center gap-1 shrink-0 cursor-pointer"
+                            >
+                              <Eye className="w-3 h-3 text-[#f85508]" />
+                              <span>Preview</span>
+                            </button>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="p-2 rounded-lg neo-inset text-[11px] text-slate-500 bg-slate-50">
+                          Emails automatically queued for {selectedLead.email} & info@simply-biz.com.
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
                 <div className="flex items-center justify-between pt-4 border-t border-slate-200">
@@ -818,6 +922,149 @@ export const AdminPage: React.FC<AdminPageProps> = ({
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* ================= TAB 2: DISPATCHED EMAIL LOGS ================= */}
+      {activeTab === 'emails' && (
+        <div className="space-y-6">
+          <div className="neo-box rounded-3xl p-6 sm:p-8 space-y-6 border border-white">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl neo-inset flex items-center justify-center text-[#f85508]">
+                  <Mail className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-[#00106b]">
+                    Dispatched Email Notifications Log
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Audit trail of all Customer Confirmations and Receiver Lead Alerts (info@simply-biz.com).
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setEmailLogs(getEmailLogs())}
+                  className="neo-btn-neutral px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                >
+                  <RefreshCw className="w-3.5 h-3.5 text-[#00106b]" />
+                  <span>Refresh Log</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Email Logs Table */}
+            <div className="neo-box rounded-2xl overflow-hidden border border-white">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-[#00106b] text-white">
+                    <tr>
+                      <th className="py-3 px-4 font-bold">Email Type</th>
+                      <th className="py-3 px-4 font-bold">Recipient</th>
+                      <th className="py-3 px-4 font-bold">Subject</th>
+                      <th className="py-3 px-4 font-bold">Sent Time</th>
+                      <th className="py-3 px-4 font-bold">Status</th>
+                      <th className="py-3 px-4 font-bold text-right">Preview</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200/80 bg-white/40">
+                    {emailLogs.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="py-12 text-center text-slate-400">
+                          No emails recorded yet. Submit a quote via the website or WhatsApp to see instant dispatch.
+                        </td>
+                      </tr>
+                    ) : (
+                      emailLogs.map((log) => (
+                        <tr key={log.id} className="hover:bg-slate-50/50 transition-colors">
+                          <td className="py-3 px-4">
+                            <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold ${
+                              log.type === 'customer_confirmation'
+                                ? 'bg-indigo-100 text-indigo-800'
+                                : 'bg-orange-100 text-[#f85508]'
+                            }`}>
+                              {log.type === 'customer_confirmation' ? 'Customer Confirmation' : 'Receiver Alert'}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 font-medium text-slate-800">
+                            {log.recipient}
+                          </td>
+                          <td className="py-3 px-4 font-semibold text-[#00106b] max-w-xs truncate">
+                            {log.subject}
+                          </td>
+                          <td className="py-3 px-4 text-slate-500 text-[11px] whitespace-nowrap">
+                            {new Date(log.sentAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                          </td>
+                          <td className="py-3 px-4">
+                            <span className="inline-flex items-center gap-1 text-emerald-700 font-bold text-[11px]">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                              <span>Delivered</span>
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-right">
+                            <button
+                              onClick={() => setSelectedEmailPreview(log)}
+                              className="neo-btn-neutral px-2.5 py-1 rounded-lg text-xs font-bold text-[#00106b] hover:text-[#f85508] cursor-pointer inline-flex items-center gap-1"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                              <span>View HTML</span>
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Global Email Preview Modal */}
+      {selectedEmailPreview && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="neo-box rounded-3xl p-6 sm:p-8 max-w-2xl w-full bg-white space-y-4 shadow-2xl relative max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between border-b pb-3 shrink-0">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[#f85508] block">
+                  Rendered HTML Email
+                </span>
+                <h3 className="text-base sm:text-lg font-bold text-[#00106b] truncate">
+                  {selectedEmailPreview.subject}
+                </h3>
+                <div className="text-xs text-slate-500 mt-0.5">
+                  To: <strong>{selectedEmailPreview.recipient}</strong> · From: {selectedEmailPreview.sender}
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedEmailPreview(null)}
+                className="w-8 h-8 rounded-lg neo-box-sm flex items-center justify-center text-slate-500 hover:text-slate-900 cursor-pointer shrink-0 ml-3"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Email Iframe Display */}
+            <div className="flex-1 min-h-[400px] border border-slate-200 rounded-xl overflow-hidden bg-slate-50">
+              <iframe
+                srcDoc={selectedEmailPreview.htmlBody}
+                title="Email Preview"
+                className="w-full h-full min-h-[400px] border-0"
+              />
+            </div>
+
+            <div className="flex justify-end pt-2 shrink-0">
+              <button
+                onClick={() => setSelectedEmailPreview(null)}
+                className="neo-btn-primary px-5 py-2 rounded-xl text-xs font-bold cursor-pointer"
+              >
+                Close Preview
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

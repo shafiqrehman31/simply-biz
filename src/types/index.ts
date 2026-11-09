@@ -30,6 +30,18 @@ export interface Lead {
   notes?: string;
 }
 
+export interface EmailLog {
+  id: string;
+  leadId: string;
+  recipient: string;
+  sender: string;
+  subject: string;
+  htmlBody: string;
+  type: 'customer_confirmation' | 'admin_notification';
+  sentAt: string;
+  status: 'Delivered' | 'Sent';
+}
+
 export interface PipedriveConfig {
   apiToken: string;
   companyDomain: string;

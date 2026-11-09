@@ -5,9 +5,14 @@ import { ChevronLeft, ChevronRight, ArrowUpRight, CheckCircle2, Shield } from 'l
 interface HeroCarouselProps {
   slides: HeroSlide[];
   onNavigate: (page: PageRoute) => void;
+  onOpenQuoteModal?: () => void;
 }
 
-export const HeroCarousel: React.FC<HeroCarouselProps> = ({ slides, onNavigate }) => {
+export const HeroCarousel: React.FC<HeroCarouselProps> = ({ 
+  slides, 
+  onNavigate,
+  onOpenQuoteModal,
+}) => {
   const activeSlides = slides.filter((s) => s.isActive);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
@@ -109,7 +114,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({ slides, onNavigate }
             </button>
 
             <button
-              onClick={() => onNavigate('contact')}
+              onClick={onOpenQuoteModal ? onOpenQuoteModal : () => onNavigate('contact')}
               className="px-6 py-3.5 rounded-xl font-semibold text-sm sm:text-base text-white bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/25 transition-all flex items-center gap-2 cursor-pointer"
             >
               <span>{currentSlide.secondaryCtaText}</span>

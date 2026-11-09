@@ -48,6 +48,7 @@ export const ContactPage: React.FC<ContactPageProps> = ({
     leadId: string;
     pipedriveSynced: boolean;
     dealId?: string;
+    recipientEmail: string;
   } | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -76,6 +77,7 @@ export const ContactPage: React.FC<ContactPageProps> = ({
         leadId: res.lead.id,
         pipedriveSynced: res.lead.pipedriveStatus === 'synced',
         dealId: res.lead.pipedriveDealId ? String(res.lead.pipedriveDealId) : undefined,
+        recipientEmail: email.trim(),
       });
 
       // Clear form
@@ -113,7 +115,7 @@ export const ContactPage: React.FC<ContactPageProps> = ({
         {/* Contact Form (Neomorphic Tactile Card) */}
         <div className="lg:col-span-7 neo-box rounded-3xl p-8 sm:p-10 border border-white">
           {submittedResult ? (
-            <div className="text-center py-12 space-y-6">
+            <div className="text-center py-8 space-y-6">
               <div className="w-16 h-16 rounded-2xl neo-inset mx-auto flex items-center justify-center text-emerald-600">
                 <CheckCircle2 className="w-10 h-10" />
               </div>
@@ -122,8 +124,31 @@ export const ContactPage: React.FC<ContactPageProps> = ({
                   Inquiry Successfully Received!
                 </h3>
                 <p className="text-sm text-slate-600 max-w-md mx-auto">
-                  Reference: <span className="font-mono font-bold text-[#00106b]">{submittedResult.leadId}</span>. A senior corporate advisor has been assigned to your file and will contact you shortly.
+                  Reference: <span className="font-mono font-bold text-[#00106b]">{submittedResult.leadId}</span>. A senior corporate advisor has been assigned to your file.
                 </p>
+              </div>
+
+              {/* Email Delivery Feedback */}
+              <div className="space-y-2 max-w-md mx-auto text-xs text-left">
+                <div className="p-3 rounded-xl neo-inset bg-emerald-50 border border-emerald-200 text-emerald-900 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Mail className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>Confirmation email delivered to: <strong>{submittedResult.recipientEmail}</strong></span>
+                  </div>
+                  <span className="text-[10px] bg-emerald-200 font-bold px-2 py-0.5 rounded-full text-emerald-800">
+                    Sent
+                  </span>
+                </div>
+
+                <div className="p-3 rounded-xl neo-inset bg-slate-50 border border-slate-200 text-slate-700 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="w-4 h-4 text-[#00106b] shrink-0" />
+                    <span>Dispatched to Simply Biz CRM & info@simply-biz.com</span>
+                  </div>
+                  <span className="text-[10px] bg-blue-100 font-bold px-2 py-0.5 rounded-full text-[#00106b]">
+                    Logged
+                  </span>
+                </div>
               </div>
 
               {submittedResult.pipedriveSynced && (

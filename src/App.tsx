@@ -9,6 +9,8 @@ import { getCMSData, saveCMSData } from './services/storage';
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
 import { FloatingActions } from './components/FloatingActions';
+import { QuoteModal } from './components/QuoteModal';
+import { WhatsAppChatbot } from './components/WhatsAppChatbot';
 import { HomePage } from './pages/HomePage';
 import { AboutPage } from './pages/AboutPage';
 import { ServicesPage } from './pages/ServicesPage';
@@ -27,6 +29,11 @@ export default function App() {
     serviceTitle?: string;
     details?: string;
   } | undefined>(undefined);
+
+  // Global modals state
+  const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false);
+  const [quoteServiceInitial, setQuoteServiceInitial] = useState<string | undefined>(undefined);
+  const [isWhatsAppChatbotOpen, setIsWhatsAppChatbotOpen] = useState(false);
 
   // Sync route with URL hash on load and popstate
   useEffect(() => {
@@ -54,6 +61,13 @@ export default function App() {
 
   const handleSelectServiceForQuote = (serviceTitle: string, details: string) => {
     setInitialInterest({ serviceTitle, details });
+    setQuoteServiceInitial(serviceTitle);
+    setIsQuoteModalOpen(true);
+  };
+
+  const handleOpenQuoteModal = (service?: string) => {
+    setQuoteServiceInitial(service);
+    setIsQuoteModalOpen(true);
   };
 
   const handleUpdateCMS = (updated: CMSData) => {
@@ -68,6 +82,7 @@ export default function App() {
         currentPage={currentPage}
         onNavigate={handleNavigate}
         branding={cmsData.branding}
+        onOpenQuoteModal={() => handleOpenQuoteModal()}
       />
 
       {/* Main Multi-Page Content Area */}
@@ -76,6 +91,8 @@ export default function App() {
           <HomePage
             cmsData={cmsData}
             onNavigate={handleNavigate}
+            onOpenQuoteModal={() => handleOpenQuoteModal()}
+            onOpenWhatsAppChatbot={() => setIsWhatsAppChatbotOpen(true)}
           />
         )}
 
@@ -133,8 +150,31 @@ export default function App() {
         )}
       </main>
 
-      {/* Floating Bottom-to-Top Tab & Floating WhatsApp Concierge */}
-      <FloatingActions branding={cmsData.branding} />
+      {/* Floating Bottom-to-Top Tab & Floating WhatsApp Concierge Chatbot */}
+      <FloatingActions 
+        branding={cmsData.branding}
+        onToggleWhatsAppChatbot={() => setIsWhatsAppChatbotOpen(prev => !prev)}
+        isChatbotOpen={isWhatsAppChatbotOpen}
+      />
+
+      {/* Interactive WhatsApp Chatbot Widget */}
+      <WhatsAppChatbot
+        isOpen={isWhatsAppChatbotOpen}
+        onClose={() => setIsWhatsAppChatbotOpen(false)}
+        branding={cmsData.branding}
+        onOpenQuoteModal={() => {
+          setIsWhatsAppChatbotOpen(false);
+          setIsQuoteModalOpen(true);
+        }}
+      />
+
+      {/* Itemized Free Quote Request Modal with Instant Email Dispatching */}
+      <QuoteModal
+        isOpen={isQuoteModalOpen}
+        onClose={() => setIsQuoteModalOpen(false)}
+        branding={cmsData.branding}
+        initialService={quoteServiceInitial}
+      />
 
       {/* Footer with branding, contacts, and legal policy pages */}
       <Footer
