@@ -31,7 +31,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, branding }) => {
                 <img
                   src={logoWhiteSrc}
                   alt={branding.siteName}
-                  className="h-10 sm:h-111 md:h-12 lg:h-[120px] w-auto max-w-[150px] object-contain drop-shadow-sm"
+                  className="h-[80px] sm:h-111 md:h-12 lg:h-[120px] w-auto max-w-[150px] object-contain drop-shadow-sm"
                   style={{ aspectRatio: '1342 / 772' }}
                 />
               ) : (
