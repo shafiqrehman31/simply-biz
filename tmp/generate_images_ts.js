@@ -1,0 +1,24 @@
+const fs = require('fs');
+
+const b64Color = fs.readFileSync('public/assets/aistudio/Simply-Biz-Logo-png_ca8d7e32.png').toString('base64');
+const b64White = fs.readFileSync('public/assets/aistudio/Simply-Biz-Logo-white_ed8e5b57.png').toString('base64');
+
+const fileContent = `// Verified production assets for Simply Biz
+// Embedded zero-margin high-res logos (1342x772) for 100% reliable cross-browser & mobile rendering
+// High-resolution photography for Dubai corporate architecture & executive boardrooms
+
+export const SIMPLY_BIZ_LOGO_COLOR = "data:image/png;base64,${b64Color}";
+export const SIMPLY_BIZ_LOGO_WHITE = "data:image/png;base64,${b64White}";
+
+export const APP_IMAGES = {
+  logoPng: SIMPLY_BIZ_LOGO_COLOR,
+  logoWhite: SIMPLY_BIZ_LOGO_WHITE,
+  heroDubai: 'https://images.unsplash.com/photo-1512453979798-5ea266f8880c?auto=format&fit=crop&w=1920&q=80',
+  heroExecutive: 'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=1920&q=80',
+  heroDistrict: 'https://images.unsplash.com/photo-1580674684081-7617fbf3d745?auto=format&fit=crop&w=1920&q=80',
+  serviceBanking: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=1200&q=80',
+};
+`;
+
+fs.writeFileSync('src/assets/images.ts', fileContent);
+console.log('src/assets/images.ts successfully updated');

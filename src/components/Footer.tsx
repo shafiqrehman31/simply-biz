@@ -1,7 +1,7 @@
 import React from 'react';
 import { PageRoute, SiteBranding } from '../types';
 import { Mail, Phone, MapPin, ArrowUpRight, ShieldCheck } from 'lucide-react';
-import { SIMPLY_BIZ_LOGO_WHITE } from '../assets/logoBase64';
+import { SIMPLY_BIZ_LOGO_WHITE } from '../assets/images';
 
 interface FooterProps {
   onNavigate: (page: PageRoute) => void;

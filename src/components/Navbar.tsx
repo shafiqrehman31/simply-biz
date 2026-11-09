@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { PageRoute, SiteBranding } from '../types';
 import { Menu, X, ArrowUpRight, ShieldCheck, Settings } from 'lucide-react';
-import { SIMPLY_BIZ_LOGO_COLOR } from '../assets/logoBase64';
+import { SIMPLY_BIZ_LOGO_COLOR } from '../assets/images';
 
 interface NavbarProps {
   currentPage: PageRoute;

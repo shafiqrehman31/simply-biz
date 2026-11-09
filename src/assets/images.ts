@@ -1,8 +1,8 @@
-import { SIMPLY_BIZ_LOGO_COLOR, SIMPLY_BIZ_LOGO_WHITE } from './logoBase64';
-
 // Verified production assets for Simply Biz
-// Embedded zero-margin high-res logos (1342x772) for 100% reliable cross-browser & mobile rendering
 // High-resolution photography for Dubai corporate architecture & executive boardrooms
+
+export const SIMPLY_BIZ_LOGO_COLOR = '/assets/aistudio/Simply-Biz-Logo-png_ca8d7e32.png';
+export const SIMPLY_BIZ_LOGO_WHITE = '/assets/aistudio/Simply-Biz-Logo-white_ed8e5b57.png';
 
 export const APP_IMAGES = {
   logoPng: SIMPLY_BIZ_LOGO_COLOR,
