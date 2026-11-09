@@ -45,7 +45,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <img
                   src={branding.logoUrl}
                   alt={branding.siteName}
-                  className="h-11 sm:h-12 md:h-13 w-auto max-h-13 object-contain transition-transform group-hover:scale-102 drop-shadow-xs"
+                  width={92}
+                  height={52}
+                  className="w-[92px] h-[52px] min-w-[92px] max-w-[92px] max-h-[52px] object-contain transition-transform group-hover:scale-105 drop-shadow-xs"
+                  style={{ width: '92px', height: '52px' }}
                 />
               ) : (
                 <div className="flex items-center gap-2.5">
