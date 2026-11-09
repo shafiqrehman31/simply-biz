@@ -45,10 +45,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <img
                   src={branding.logoUrl}
                   alt={branding.siteName}
-                  width={92}
+                  width={150}
                   height={52}
-                  className="w-[92px] h-[52px] min-w-[92px] max-w-[92px] max-h-[52px] object-contain transition-transform group-hover:scale-105 drop-shadow-xs"
-                  style={{ width: '92px', height: '52px' }}
+                  className="w-[150px] h-[52px] min-w-[150px] max-w-[150px] max-h-[52px] object-contain transition-transform group-hover:scale-105 drop-shadow-xs"
+                  style={{ width: '150px', height: '52px' }}
                 />
               ) : (
                 <div className="flex items-center gap-2.5">
