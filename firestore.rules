@@ -1,0 +1,68 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny all unknown collections
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidLead(data) {
+      return data.id is string && data.id.size() <= 128
+        && data.name is string && data.name.size() > 0 && data.name.size() <= 200
+        && data.email is string && data.email.size() > 0 && data.email.size() <= 200
+        && data.phone is string && data.phone.size() > 0 && data.phone.size() <= 50
+        && data.jurisdiction is string && data.jurisdiction.size() <= 50
+        && data.activityType is string && data.activityType.size() <= 200
+        && data.visasNeeded is number && data.visasNeeded >= 0 && data.visasNeeded <= 1000
+        && data.status is string && data.status.size() <= 50
+        && data.createdAt is string && data.createdAt.size() <= 100
+        && (!('company' in data) || (data.company is string && data.company.size() <= 200))
+        && (!('message' in data) || (data.message is string && data.message.size() <= 5000))
+        && (!('budget' in data) || (data.budget is string && data.budget.size() <= 100))
+        && (!('pipedriveStatus' in data) || (data.pipedriveStatus is string && data.pipedriveStatus.size() <= 50))
+        && (!('pipedriveDealId' in data) || data.pipedriveDealId == null || (data.pipedriveDealId is string && data.pipedriveDealId.size() <= 100))
+        && (!('notes' in data) || (data.notes is string && data.notes.size() <= 2000));
+    }
+
+    function isValidEmailLog(data) {
+      return data.id is string && data.id.size() <= 128
+        && data.leadId is string && data.leadId.size() <= 128
+        && data.recipient is string && data.recipient.size() <= 200
+        && data.sender is string && data.sender.size() <= 200
+        && data.subject is string && data.subject.size() <= 300
+        && data.htmlBody is string && data.htmlBody.size() <= 100000
+        && data.type is string && (data.type == 'customer_confirmation' || data.type == 'admin_notification')
+        && data.sentAt is string && data.sentAt.size() <= 100
+        && data.status is string && (data.status == 'Delivered' || data.status == 'Sent');
+    }
+
+    // Leads Collection: Public inquiries & Admin management
+    match /leads/{leadId} {
+      allow read: if true;
+      allow create: if isValidId(leadId) && isValidLead(incoming());
+      allow update: if isValidId(leadId) && isValidLead(incoming()) && incoming().createdAt == existing().createdAt;
+      allow delete: if false;
+    }
+
+    // Email Logs Collection: Audit trail of dispatched customer and admin emails
+    match /emailLogs/{emailLogId} {
+      allow read: if true;
+      allow create: if isValidId(emailLogId) && isValidEmailLog(incoming());
+      allow update, delete: if false;
+    }
+  }
+}

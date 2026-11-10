@@ -2,6 +2,12 @@ import { CMSData, Lead, PipedriveConfig, SiteBranding } from '../types';
 import { APP_IMAGES } from '../assets/images';
 import { sendQuoteEmails } from './emailService';
 import type { EmailLog } from '../types';
+import { 
+  saveLeadToFirestore, 
+  updateLeadStatusInFirestore as updateLeadStatusInDb, 
+  subscribeToFirestoreLeads, 
+  fetchFirestoreLeads 
+} from './firebase';
 
 const STORAGE_KEYS = {
   CMS_DATA: 'simplybiz_cms_data_v4',
@@ -467,17 +473,65 @@ export async function addLead(newLead: Omit<Lead, 'id' | 'createdAt' | 'status' 
     }
   }
 
-  // 3. Persist to storage
+  // 3. Persist to local cache
   const updatedLeads = [lead, ...leads];
   saveLeads(updatedLeads);
 
-  // 4. Dispatch global event so Admin page and other tabs react immediately without refresh
+  // 4. Persist to Cloud Firestore for cross-browser synchronization
+  saveLeadToFirestore(lead).catch((err) => {
+    console.warn('Firestore lead persistence notice:', err);
+  });
+
+  // 5. Dispatch global event so Admin page and other tabs react immediately without refresh
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('simplybiz_lead_added', { detail: { lead, emailsSent } }));
     window.dispatchEvent(new Event('storage'));
   }
 
   return { lead, pipedriveResult, emailsSent };
+}
+
+// Update lead status in both local cache and Cloud Firestore
+export async function updateLeadStatusInFirestore(leadId: string, newStatus: Lead['status']): Promise<void> {
+  const leads = getLeads();
+  const updated = leads.map(l => l.id === leadId ? { ...l, status: newStatus } : l);
+  saveLeads(updated);
+
+  await updateLeadStatusInDb(leadId, newStatus);
+}
+
+// Real-time Cloud Firestore subscription for leads across all browsers & devices
+export function subscribeToLeads(callback: (leads: Lead[]) => void): () => void {
+  return subscribeToFirestoreLeads(
+    (firestoreLeads) => {
+      if (firestoreLeads.length > 0) {
+        saveLeads(firestoreLeads);
+        callback(firestoreLeads);
+      } else {
+        INITIAL_LEADS.forEach((seed) => {
+          saveLeadToFirestore(seed).catch(console.warn);
+        });
+        callback(getLeads());
+      }
+    },
+    () => {
+      callback(getLeads());
+    }
+  );
+}
+
+// Manual sync leads from Cloud Firestore
+export async function syncLeadsFromFirestore(): Promise<Lead[]> {
+  try {
+    const firestoreLeads = await fetchFirestoreLeads();
+    if (firestoreLeads.length > 0) {
+      saveLeads(firestoreLeads);
+      return firestoreLeads;
+    }
+  } catch (err) {
+    console.warn('Failed fetching leads from Firestore:', err);
+  }
+  return getLeads();
 }
 
 // Pipedrive CRM API Synchronization

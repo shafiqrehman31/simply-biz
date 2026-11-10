@@ -18,9 +18,12 @@ import {
   getCMSData, 
   saveCMSData, 
   syncLeadToPipedrive,
-  DEFAULT_CMS_DATA 
+  DEFAULT_CMS_DATA,
+  subscribeToLeads,
+  syncLeadsFromFirestore,
+  updateLeadStatusInFirestore
 } from '../services/storage';
-import { getEmailLogs, getEmailLogsForLead } from '../services/emailService';
+import { getEmailLogs, getEmailLogsForLead, subscribeToEmailLogs } from '../services/emailService';
 import { 
   Users, 
   Sliders, 
@@ -234,8 +237,18 @@ export const AdminPage: React.FC<AdminPageProps> = ({
   const [statusFilter, setStatusFilter] = useState<string>('All');
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
 
-  // Real-time synchronization: Instantly update leads table & emails whenever a customer submits a quote anywhere
+  // Real-time synchronization: Instantly update leads & email logs across different browsers and devices via Cloud Firestore
   useEffect(() => {
+    // 1. Subscribe to Cloud Firestore in real time for cross-browser synchronization
+    const unsubLeads = subscribeToLeads((firestoreLeads) => {
+      setLeads(firestoreLeads);
+    });
+
+    const unsubEmails = subscribeToEmailLogs((firestoreEmails) => {
+      setEmailLogs(firestoreEmails);
+    });
+
+    // 2. Local fallback events
     const handleLeadAdded = (e: any) => {
       const updatedLeads = getLeads();
       setLeads(updatedLeads);
@@ -259,21 +272,27 @@ export const AdminPage: React.FC<AdminPageProps> = ({
     window.addEventListener('storage', handleStorageChange);
 
     return () => {
+      unsubLeads();
+      unsubEmails();
       window.removeEventListener('simplybiz_lead_added', handleLeadAdded);
       window.removeEventListener('simplybiz_emails_sent', handleEmailsSent);
       window.removeEventListener('storage', handleStorageChange);
     };
   }, []);
 
-  const handleManualRefreshLeads = () => {
+  const handleManualRefreshLeads = async () => {
     setIsRefreshingLeads(true);
-    setTimeout(() => {
-      setLeads(getLeads());
+    try {
+      const synced = await syncLeadsFromFirestore();
+      setLeads(synced);
       setEmailLogs(getEmailLogs());
+      setSaveSuccessMessage('✓ Inquiries & Leads synchronized with Cloud Database.');
+    } catch (err) {
+      console.warn('Manual refresh notice:', err);
+    } finally {
       setIsRefreshingLeads(false);
-      setSaveSuccessMessage('✓ Inquiries & Leads successfully refreshed from database.');
       setTimeout(() => setSaveSuccessMessage(null), 3000);
-    }, 400);
+    }
   };
 
   // Local draft states
@@ -304,9 +323,9 @@ export const AdminPage: React.FC<AdminPageProps> = ({
 
   // --- LEADS MANAGEMENT ---
   const handleLeadStatusChange = (leadId: string, newStatus: Lead['status']) => {
+    updateLeadStatusInFirestore(leadId, newStatus);
     const updated = leads.map(l => l.id === leadId ? { ...l, status: newStatus } : l);
     setLeads(updated);
-    saveLeads(updated);
   };
 
   const handleSyncToPipedrive = async (lead: Lead) => {
@@ -625,6 +644,12 @@ export const AdminPage: React.FC<AdminPageProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
+          {/* Cloud Database Cross-Browser Live Sync Badge */}
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl neo-inset bg-emerald-50/80 border border-emerald-200/80 text-emerald-800 text-xs font-semibold">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="text-[11px]">Cloud Database: Live (Cross-Browser)</span>
+          </div>
+
           {/* Active Admin Profile Pill */}
           <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl neo-inset bg-white/60 text-xs">
             <div className="w-6 h-6 rounded-full bg-[#00106b] text-white flex items-center justify-center font-bold text-[10px]">

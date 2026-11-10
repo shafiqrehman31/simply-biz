@@ -1,4 +1,5 @@
 import { Lead, SiteBranding, EmailLog } from '../types';
+import { saveEmailLogToFirestore, subscribeToFirestoreEmailLogs } from './firebase';
 
 const EMAIL_STORAGE_KEY = 'simplybiz_sent_emails_v1';
 
@@ -330,11 +331,39 @@ export function sendQuoteEmails(lead: Lead, branding: SiteBranding): EmailLog[] 
 
     // Dispatch custom event so UI components can update email counters in real time
     window.dispatchEvent(new CustomEvent('simplybiz_emails_sent', { detail: { leadId: lead.id, logs } }));
+
+    // Persist to Cloud Firestore for cross-browser synchronization
+    logs.forEach((log) => {
+      saveEmailLogToFirestore(log);
+    });
   } catch (err) {
     console.error('Failed saving dispatched email logs:', err);
   }
 
   return logs;
+}
+
+/**
+ * Real-time subscription to email logs from Cloud Firestore
+ */
+export function subscribeToEmailLogs(callback: (logs: EmailLog[]) => void): () => void {
+  return subscribeToFirestoreEmailLogs(
+    (firestoreLogs) => {
+      if (firestoreLogs.length > 0) {
+        try {
+          localStorage.setItem(EMAIL_STORAGE_KEY, JSON.stringify(firestoreLogs));
+        } catch {
+          // ignore
+        }
+        callback(firestoreLogs);
+      } else {
+        callback(getEmailLogs());
+      }
+    },
+    () => {
+      callback(getEmailLogs());
+    }
+  );
 }
 
 /**

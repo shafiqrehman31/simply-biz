@@ -1,0 +1,153 @@
+{
+  "entities": {
+    "Lead": {
+      "title": "Lead",
+      "description": "A customer quote or consultation request for UAE company setup and visas",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the lead",
+          "maxLength": 128
+        },
+        "name": {
+          "type": "string",
+          "description": "Prospect full name",
+          "maxLength": 200
+        },
+        "email": {
+          "type": "string",
+          "description": "Prospect email address",
+          "maxLength": 200
+        },
+        "phone": {
+          "type": "string",
+          "description": "Contact telephone or WhatsApp number",
+          "maxLength": 50
+        },
+        "company": {
+          "type": "string",
+          "description": "Existing or proposed company name",
+          "maxLength": 200
+        },
+        "jurisdiction": {
+          "type": "string",
+          "description": "Mainland, Free Zone, Undecided, or Offshore",
+          "maxLength": 50
+        },
+        "activityType": {
+          "type": "string",
+          "description": "Business activity sector",
+          "maxLength": 200
+        },
+        "visasNeeded": {
+          "type": "number",
+          "description": "Number of residency visas required"
+        },
+        "message": {
+          "type": "string",
+          "description": "Client specific notes or inquiry details",
+          "maxLength": 5000
+        },
+        "budget": {
+          "type": "string",
+          "description": "Estimated budget bracket",
+          "maxLength": 100
+        },
+        "status": {
+          "type": "string",
+          "description": "Workflow status of lead",
+          "enum": ["New", "Contacted", "In Progress", "Converted", "Closed"],
+          "maxLength": 50
+        },
+        "pipedriveStatus": {
+          "type": "string",
+          "description": "Pipedrive CRM synchronization state",
+          "enum": ["synced", "pending", "failed"],
+          "maxLength": 50
+        },
+        "pipedriveDealId": {
+          "type": "string",
+          "description": "Assigned Pipedrive deal ID",
+          "maxLength": 100
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "ISO timestamp of submission",
+          "maxLength": 100
+        },
+        "notes": {
+          "type": "string",
+          "description": "Internal CRM consultant notes",
+          "maxLength": 2000
+        }
+      },
+      "required": ["id", "name", "email", "phone", "jurisdiction", "activityType", "visasNeeded", "status", "createdAt"]
+    },
+    "EmailLog": {
+      "title": "EmailLog",
+      "description": "Audit log of dispatched customer confirmation or admin notification emails",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for email log",
+          "maxLength": 128
+        },
+        "leadId": {
+          "type": "string",
+          "description": "Associated lead ID",
+          "maxLength": 128
+        },
+        "recipient": {
+          "type": "string",
+          "description": "Email recipient",
+          "maxLength": 200
+        },
+        "sender": {
+          "type": "string",
+          "description": "Email sender address",
+          "maxLength": 200
+        },
+        "subject": {
+          "type": "string",
+          "description": "Email subject header",
+          "maxLength": 300
+        },
+        "htmlBody": {
+          "type": "string",
+          "description": "Rendered HTML email template",
+          "maxLength": 100000
+        },
+        "type": {
+          "type": "string",
+          "description": "Type of email",
+          "enum": ["customer_confirmation", "admin_notification"],
+          "maxLength": 50
+        },
+        "sentAt": {
+          "type": "string",
+          "description": "ISO timestamp of dispatch",
+          "maxLength": 100
+        },
+        "status": {
+          "type": "string",
+          "description": "Delivery status",
+          "enum": ["Delivered", "Sent"],
+          "maxLength": 50
+        }
+      },
+      "required": ["id", "leadId", "recipient", "sender", "subject", "htmlBody", "type", "sentAt", "status"]
+    }
+  },
+  "firestore": {
+    "/leads/{leadId}": {
+      "schema": "Lead",
+      "description": "Collection of customer quote inquiries across all browsers and devices"
+    },
+    "/emailLogs/{emailLogId}": {
+      "schema": "EmailLog",
+      "description": "Collection of dispatched email logs and audit records"
+    }
+  }
+}
