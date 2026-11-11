@@ -1,5 +1,6 @@
 import React from 'react';
-import { PageRoute } from '../types';
+import { PageRoute, WhyUsPageContent } from '../types';
+import { DEFAULT_WHY_US_CONTENT } from '../services/storage';
 import { 
   Check, 
   X, 
@@ -14,9 +15,11 @@ import {
 
 interface WhyChooseUsPageProps {
   onNavigate: (page: PageRoute) => void;
+  whyUsContent?: WhyUsPageContent;
 }
 
-export const WhyChooseUsPage: React.FC<WhyChooseUsPageProps> = ({ onNavigate }) => {
+export const WhyChooseUsPage: React.FC<WhyChooseUsPageProps> = ({ onNavigate, whyUsContent }) => {
+  const content = whyUsContent || DEFAULT_WHY_US_CONTENT;
   const comparisonRows = [
     {
       feature: 'Written Itemized Quote Guarantee',
@@ -56,7 +59,7 @@ export const WhyChooseUsPage: React.FC<WhyChooseUsPageProps> = ({ onNavigate }) 
     },
   ];
 
-  const steps = [
+  const steps = (content.steps && content.steps.length > 0) ? content.steps : [
     {
       num: '01',
       title: 'Jurisdiction & Activity Match',
@@ -105,13 +108,13 @@ export const WhyChooseUsPage: React.FC<WhyChooseUsPageProps> = ({ onNavigate }) 
       {/* Header */}
       <div className="max-w-3xl space-y-4">
         <div className="text-xs font-bold tracking-widest text-[#f85508] uppercase">
-          The Simply Biz Standard
+          {content.badgeText || 'The Simply Biz Standard'}
         </div>
         <h1 className="text-4xl sm:text-5xl font-extrabold text-[#00106b] tracking-tight">
-          Why Discerning Entrepreneurs Choose Simply Biz
+          {content.headline || 'Why Discerning Entrepreneurs Choose Simply Biz'}
         </h1>
         <p className="text-base sm:text-lg text-slate-600 leading-relaxed">
-          The UAE company formation market is saturated with low-cost "headline" packages that exclude critical costs. We operate on a foundation of absolute pricing honesty, speed, and bespoke corporate advisory.
+          {content.subheadline}
         </p>
       </div>
 

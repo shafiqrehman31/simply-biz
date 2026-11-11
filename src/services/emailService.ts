@@ -344,6 +344,82 @@ export function sendQuoteEmails(lead: Lead, branding: SiteBranding): EmailLog[] 
 }
 
 /**
+ * Dispatches an isolated test email to verify delivery without affecting real customers.
+ * Supports testing Customer Confirmation template, Receiver Lead Alert template, or both.
+ */
+export function sendTestEmail(
+  targetEmail: string,
+  branding: SiteBranding,
+  templateType: 'customer_confirmation' | 'admin_notification' | 'both' = 'both',
+  customLeadData?: Partial<Lead>
+): EmailLog[] {
+  const dummyLead: Lead = {
+    id: `test-quote-${Date.now().toString().slice(-4)}`,
+    name: customLeadData?.name || 'Alexander Vance (Test Prospect)',
+    email: targetEmail,
+    phone: customLeadData?.phone || '+971 52 710 4488',
+    company: customLeadData?.company || 'Vance Global Enterprise LLC',
+    jurisdiction: customLeadData?.jurisdiction || 'Mainland',
+    activityType: customLeadData?.activityType || 'Management Consulting & Commercial Trade',
+    visasNeeded: customLeadData?.visasNeeded || 2,
+    message: customLeadData?.message || 'Verification test run from Simply Biz Admin Control Panel to test HTML rendering and delivery pipeline.',
+    budget: customLeadData?.budget || 'AED 25,000 - 35,000',
+    status: 'New',
+    pipedriveStatus: 'synced',
+    createdAt: new Date().toISOString(),
+  };
+
+  const logs: EmailLog[] = [];
+
+  if (templateType === 'customer_confirmation' || templateType === 'both') {
+    const custEmail = generateCustomerEmail(dummyLead, branding);
+    logs.push({
+      id: `email-test-cust-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      leadId: dummyLead.id,
+      recipient: targetEmail,
+      sender: `Simply Biz Concierge <${branding.siteEmail}>`,
+      subject: `[TEST VERIFIED] ${custEmail.subject}`,
+      htmlBody: custEmail.html,
+      type: 'customer_confirmation',
+      sentAt: new Date().toISOString(),
+      status: 'Delivered',
+    });
+  }
+
+  if (templateType === 'admin_notification' || templateType === 'both') {
+    const admEmail = generateAdminEmail(dummyLead, branding);
+    logs.push({
+      id: `email-test-admin-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      leadId: dummyLead.id,
+      recipient: targetEmail || branding.siteEmail || 'info@simply-biz.com',
+      sender: `Simply Biz Lead Test Alert <notifications@simply-biz.com>`,
+      subject: `[TEST VERIFIED] ${admEmail.subject}`,
+      htmlBody: admEmail.html,
+      type: 'admin_notification',
+      sentAt: new Date().toISOString(),
+      status: 'Delivered',
+    });
+  }
+
+  try {
+    const existingRaw = localStorage.getItem(EMAIL_STORAGE_KEY);
+    const existing: EmailLog[] = existingRaw ? JSON.parse(existingRaw) : [];
+    const updated = [...logs, ...existing];
+    localStorage.setItem(EMAIL_STORAGE_KEY, JSON.stringify(updated));
+
+    window.dispatchEvent(new CustomEvent('simplybiz_emails_sent', { detail: { leadId: dummyLead.id, logs } }));
+
+    logs.forEach((log) => {
+      saveEmailLogToFirestore(log);
+    });
+  } catch (err) {
+    console.error('Failed saving test email logs:', err);
+  }
+
+  return logs;
+}
+
+/**
  * Real-time subscription to email logs from Cloud Firestore
  */
 export function subscribeToEmailLogs(callback: (logs: EmailLog[]) => void): () => void {

@@ -100,6 +100,7 @@ export default function App() {
           <AboutPage
             onNavigate={handleNavigate}
             branding={cmsData.branding}
+            aboutContent={cmsData.aboutContent}
           />
         )}
 
@@ -108,12 +109,14 @@ export default function App() {
             services={cmsData.services}
             onNavigate={handleNavigate}
             onSelectServiceForQuote={handleSelectServiceForQuote}
+            pageContent={cmsData.servicesContent}
           />
         )}
 
         {currentPage === 'why-us' && (
           <WhyChooseUsPage
             onNavigate={handleNavigate}
+            whyUsContent={cmsData.whyUsContent}
           />
         )}
 

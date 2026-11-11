@@ -1,27 +1,37 @@
 import React from 'react';
-import { PageRoute, SiteBranding } from '../types';
+import { PageRoute, SiteBranding, AboutPageContent } from '../types';
 import { APP_IMAGES } from '../assets/images';
+import { DEFAULT_ABOUT_CONTENT } from '../services/storage';
 import { ShieldCheck, Award, Target, HeartHandshake, CheckCircle2, ArrowRight } from 'lucide-react';
 
 interface AboutPageProps {
   onNavigate: (page: PageRoute) => void;
   branding: SiteBranding;
+  aboutContent?: AboutPageContent;
 }
 
-export const AboutPage: React.FC<AboutPageProps> = ({ onNavigate, branding }) => {
+export const AboutPage: React.FC<AboutPageProps> = ({ onNavigate, branding, aboutContent }) => {
+  const content = aboutContent || DEFAULT_ABOUT_CONTENT;
+  const pillarIcons = [
+    <ShieldCheck className="w-6 h-6" key="0" />,
+    <Award className="w-6 h-6" key="1" />,
+    <Target className="w-6 h-6" key="2" />,
+    <HeartHandshake className="w-6 h-6" key="3" />
+  ];
+
   return (
     <div className="space-y-20 py-12 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       
       {/* Editorial Header */}
       <div className="max-w-3xl space-y-4">
         <div className="text-xs font-bold tracking-widest text-[#f85508] uppercase">
-          About Simply Biz
+          {content.badgeText || 'About Simply Biz'}
         </div>
         <h1 className="text-4xl sm:text-5xl font-extrabold text-[#00106b] tracking-tight leading-tight">
-          Pioneering Transparency in UAE Corporate Services
+          {content.headline || 'Pioneering Transparency in UAE Corporate Services'}
         </h1>
         <p className="text-base sm:text-lg text-slate-600 leading-relaxed">
-          Simply Biz was established to solve the greatest frustration facing international founders entering the UAE: opaque pricing, misleading headline promo packages, and surprise post-incorporation visa fees.
+          {content.subheadline}
         </p>
       </div>
 
@@ -29,7 +39,7 @@ export const AboutPage: React.FC<AboutPageProps> = ({ onNavigate, branding }) =>
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
         <div className="lg:col-span-7 neo-box rounded-3xl overflow-hidden p-2">
           <img
-            src={APP_IMAGES.heroExecutive}
+            src={content.imageUrl || APP_IMAGES.heroExecutive}
             alt="Simply Biz Advisory Executive Boardroom"
             className="w-full h-[400px] object-cover rounded-2xl"
           />
@@ -37,24 +47,18 @@ export const AboutPage: React.FC<AboutPageProps> = ({ onNavigate, branding }) =>
         <div className="lg:col-span-5 space-y-6">
           <div className="neo-box rounded-2xl p-6 sm:p-8 space-y-4">
             <h3 className="text-2xl font-bold text-[#00106b]">
-              Our Guiding Principle
+              {content.guidingPrincipleTitle || 'Our Guiding Principle'}
             </h3>
             <p className="text-sm text-slate-600 leading-relaxed">
-              We provide fixed, written, itemized quotations before our clients transfer any funds. Our quotes detail everything—licence fee, trade name reservation, establishment card, immigration registration, medical VIP processing, Emirates ID, and bank account compliance assistance.
+              {content.guidingPrincipleText}
             </p>
             <div className="pt-2 border-t border-slate-200 space-y-2 text-xs font-medium text-slate-700">
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-[#f85508]" />
-                <span>Zero hidden immigration or establishment surcharges</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-[#f85508]" />
-                <span>Direct integration with 40+ official Free Zone registrars</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-[#f85508]" />
-                <span>Full compliance with UAE Corporate Tax and AML guidelines</span>
-              </div>
+              {(content.guidingPrincipleBullets || []).map((bullet, idx) => (
+                <div key={idx} className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-[#f85508] shrink-0" />
+                  <span>{bullet}</span>
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -62,45 +66,17 @@ export const AboutPage: React.FC<AboutPageProps> = ({ onNavigate, branding }) =>
 
       {/* 4 Core Pillars (Tactile Cards) */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="neo-box rounded-2xl p-6 space-y-3">
-          <div className="w-12 h-12 rounded-xl neo-inset flex items-center justify-center text-[#f85508]">
-            <ShieldCheck className="w-6 h-6" />
+        {(content.pillars || []).map((pillar, idx) => (
+          <div key={idx} className="neo-box rounded-2xl p-6 space-y-3">
+            <div className={`w-12 h-12 rounded-xl neo-inset flex items-center justify-center ${idx % 2 === 0 ? 'text-[#f85508]' : 'text-[#00106b]'}`}>
+              {pillarIcons[idx % pillarIcons.length]}
+            </div>
+            <h4 className="text-lg font-bold text-[#00106b]">{pillar.title}</h4>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              {pillar.desc}
+            </p>
           </div>
-          <h4 className="text-lg font-bold text-[#00106b]">Regulatory Integrity</h4>
-          <p className="text-xs text-slate-600 leading-relaxed">
-            Directly aligned with Dubai DET, Abu Dhabi TAMM, and official federal ministries. We operate with strict adherence to UAE commercial laws.
-          </p>
-        </div>
-
-        <div className="neo-box rounded-2xl p-6 space-y-3">
-          <div className="w-12 h-12 rounded-xl neo-inset flex items-center justify-center text-[#00106b]">
-            <Award className="w-6 h-6" />
-          </div>
-          <h4 className="text-lg font-bold text-[#00106b]">Fixed Itemized Tariffs</h4>
-          <p className="text-xs text-slate-600 leading-relaxed">
-            No bait-and-switch advertising. We compare mainland vs free zone costs objectively to match your specific customer base and visa quota.
-          </p>
-        </div>
-
-        <div className="neo-box rounded-2xl p-6 space-y-3">
-          <div className="w-12 h-12 rounded-xl neo-inset flex items-center justify-center text-[#f85508]">
-            <Target className="w-6 h-6" />
-          </div>
-          <h4 className="text-lg font-bold text-[#00106b]">White-Glove VIP Concierge</h4>
-          <p className="text-xs text-slate-600 leading-relaxed">
-            Dedicated bilingual PROs escort you through priority medical exams and biometrics, saving your executives hours of queueing.
-          </p>
-        </div>
-
-        <div className="neo-box rounded-2xl p-6 space-y-3">
-          <div className="w-12 h-12 rounded-xl neo-inset flex items-center justify-center text-[#00106b]">
-            <HeartHandshake className="w-6 h-6" />
-          </div>
-          <h4 className="text-lg font-bold text-[#00106b]">Banking & Tax Synergy</h4>
-          <p className="text-xs text-slate-600 leading-relaxed">
-            Formation is only step one. We assist with Corporate Tax TRN registration, VAT thresholds, and high-success bank introductions.
-          </p>
-        </div>
+        ))}
       </div>
 
       {/* Leadership & Strategic Advisory */}

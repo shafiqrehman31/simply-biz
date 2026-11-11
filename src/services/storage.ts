@@ -1,4 +1,12 @@
-import { CMSData, Lead, PipedriveConfig, SiteBranding } from '../types';
+import { 
+  CMSData, 
+  Lead, 
+  PipedriveConfig, 
+  SiteBranding, 
+  AboutPageContent, 
+  WhyUsPageContent, 
+  ServicesPageContent 
+} from '../types';
 import { APP_IMAGES } from '../assets/images';
 import { sendQuoteEmails } from './emailService';
 import type { EmailLog } from '../types';
@@ -26,6 +34,9 @@ export const DEFAULT_BRANDING: SiteBranding = {
   faviconUrl: APP_IMAGES.logoPng,
   primaryColor: '#00106b',
   accentColor: '#f85508',
+  facebookUrl: 'https://facebook.com/simplybizuae',
+  instagramUrl: 'https://instagram.com/simplybizuae',
+  linkedinUrl: 'https://linkedin.com/company/simplybizuae',
 };
 
 export const DEFAULT_PIPEDRIVE: PipedriveConfig = {
@@ -39,9 +50,69 @@ export const DEFAULT_PIPEDRIVE: PipedriveConfig = {
   lastSyncMessage: 'Connected to Pipedrive CRM API v1 (Pipeline: UAE Business Inquiries)',
 };
 
+export const DEFAULT_ABOUT_CONTENT: AboutPageContent = {
+  badgeText: 'About Simply Biz',
+  headline: 'Pioneering Transparency in UAE Corporate Services',
+  subheadline: 'Simply Biz was established to solve the greatest frustration facing international founders entering the UAE: opaque pricing, misleading headline promo packages, and surprise post-incorporation visa fees.',
+  imageUrl: APP_IMAGES.heroExecutive,
+  guidingPrincipleTitle: 'Our Guiding Principle',
+  guidingPrincipleText: 'We provide fixed, written, itemized quotations before our clients transfer any funds. Our quotes detail everything—licence fee, trade name reservation, establishment card, immigration registration, medical VIP processing, Emirates ID, and bank account compliance assistance.',
+  guidingPrincipleBullets: [
+    'Zero hidden immigration or establishment surcharges',
+    'Direct integration with 40+ official Free Zone registrars',
+    'Full compliance with UAE Corporate Tax and AML guidelines'
+  ],
+  pillars: [
+    {
+      title: 'Regulatory Integrity',
+      desc: 'Directly aligned with Dubai DET, Abu Dhabi TAMM, and official federal ministries. We operate with strict adherence to UAE commercial laws.'
+    },
+    {
+      title: 'Fixed Itemized Tariffs',
+      desc: 'No bait-and-switch advertising. We compare mainland vs free zone costs objectively to match your specific customer base and visa quota.'
+    },
+    {
+      title: 'White-Glove VIP Concierge',
+      desc: 'Dedicated bilingual PROs escort you through priority medical exams and biometrics, saving your executives hours of queueing.'
+    },
+    {
+      title: 'Banking & Tax Synergy',
+      desc: 'Formation is only step one. We assist with Corporate Tax TRN registration, VAT thresholds, and high-success bank introductions.'
+    }
+  ]
+};
+
+export const DEFAULT_WHY_US_CONTENT: WhyUsPageContent = {
+  badgeText: 'Transparent UAE Setup Methodology',
+  headline: 'Why Global Entrepreneurs Trust Simply Biz',
+  subheadline: 'A structured, accountable approach designed to eliminate regulatory surprises and accelerate your operational launch in Dubai and across the Emirates.',
+  guaranteeTitle: 'The Simply Biz Written Tariff Guarantee',
+  guaranteeDesc: 'We provide binding written quotations detailing all government fees, establishment cards, medical VIP concierge, and Emirates ID biometric processing. No unexpected invoices.',
+  steps: [
+    { num: '01', title: 'Jurisdiction & Activity Match', desc: 'Select approved activity codes, commercial legal forms (LLC, FZE, FZCO), and optimize share capital structure.' },
+    { num: '02', title: 'Trade Name Reservation', desc: 'Clear and reserve compliant company names through Dubai DET or relevant Free Zone authority.' },
+    { num: '03', title: 'Initial Approval & MOA Drafting', desc: 'Submit shareholder KYC, draft bilingual Memorandum of Association, and complete legal electronic notary.' },
+    { num: '04', title: 'Office Premise / Ejari Attestation', desc: 'Secure compliant lease (virtual flexi-desk, dedicated workspace, or commercial office).' },
+    { num: '05', title: 'Trade License Issuance', desc: 'Official company documents, certificate of formation, and commercial register issued by the government.' },
+    { num: '06', title: 'Establishment Card & Immigration File', desc: 'Activate company immigration file with GDRFA or ICP to open residency visa allocations.' },
+    { num: '07', title: 'VIP Visa, Medical & Emirates ID', desc: 'Fast-track entry permit / status change, priority VIP blood test & X-ray, and biometrics escort.' },
+    { num: '08', title: 'Corporate Bank Account & Tax Filing', desc: 'Audit business plan, introduce to tier-1 relationship managers, and register for UAE Corporate Tax TRN.' }
+  ]
+};
+
+export const DEFAULT_SERVICES_PAGE_CONTENT: ServicesPageContent = {
+  badgeText: 'Complete UAE Corporate Solutions',
+  headline: 'Comprehensive Company Formation & Concierge Services',
+  subheadline: 'From trade licensing and mainland LLC setups to investor residence visas and corporate bank account advisory, we handle the legal complexities with complete tariff transparency.',
+  estimatorNote: 'This interactive calculator provides preliminary estimates based on standard DED and top Free Zone published tariffs. Your final binding quote will include itemized government immigration card and VIP medical processing fees.'
+};
+
 export const DEFAULT_CMS_DATA: CMSData = {
   branding: DEFAULT_BRANDING,
   pipedrive: DEFAULT_PIPEDRIVE,
+  aboutContent: DEFAULT_ABOUT_CONTENT,
+  whyUsContent: DEFAULT_WHY_US_CONTENT,
+  servicesContent: DEFAULT_SERVICES_PAGE_CONTENT,
   heroSlides: [
     {
       id: 'slide-1',
@@ -371,7 +442,18 @@ export function getCMSData(): CMSData {
       if (!data.branding.faviconUrl || !data.branding.faviconUrl.startsWith('data:')) {
         data.branding.faviconUrl = APP_IMAGES.logoPng;
       }
+      if (!data.branding.facebookUrl) {
+        data.branding.facebookUrl = DEFAULT_BRANDING.facebookUrl;
+      }
+      if (!data.branding.instagramUrl) {
+        data.branding.instagramUrl = DEFAULT_BRANDING.instagramUrl;
+      }
     }
+
+    data.aboutContent = { ...DEFAULT_ABOUT_CONTENT, ...(data.aboutContent || {}) };
+    data.whyUsContent = { ...DEFAULT_WHY_US_CONTENT, ...(data.whyUsContent || {}) };
+    data.servicesContent = { ...DEFAULT_SERVICES_PAGE_CONTENT, ...(data.servicesContent || {}) };
+
     if (data.heroSlides) {
       const defaultImgs = [APP_IMAGES.heroDubai, APP_IMAGES.heroExecutive, APP_IMAGES.heroDistrict];
       data.heroSlides = data.heroSlides.map((s, idx) => {

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { PageRoute, ServiceItem } from '../types';
+import { PageRoute, ServiceItem, ServicesPageContent } from '../types';
+import { DEFAULT_SERVICES_PAGE_CONTENT } from '../services/storage';
 import { 
   Building2, 
   Globe, 
@@ -19,13 +20,16 @@ interface ServicesPageProps {
   services: ServiceItem[];
   onNavigate: (page: PageRoute) => void;
   onSelectServiceForQuote?: (serviceTitle: string, details: string) => void;
+  pageContent?: ServicesPageContent;
 }
 
 export const ServicesPage: React.FC<ServicesPageProps> = ({ 
   services, 
   onNavigate,
-  onSelectServiceForQuote 
+  onSelectServiceForQuote,
+  pageContent 
 }) => {
+  const content = pageContent || DEFAULT_SERVICES_PAGE_CONTENT;
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
 
   // Interactive Estimator State
@@ -76,13 +80,13 @@ export const ServicesPage: React.FC<ServicesPageProps> = ({
       {/* Header */}
       <div className="max-w-3xl space-y-4">
         <div className="text-xs font-bold tracking-widest text-[#f85508] uppercase">
-          Corporate Solutions
+          {content.badgeText || 'Corporate Solutions'}
         </div>
         <h1 className="text-4xl sm:text-5xl font-extrabold text-[#00106b] tracking-tight">
-          Tailored UAE Incorporation & Regulatory Services
+          {content.headline || 'Tailored UAE Incorporation & Regulatory Services'}
         </h1>
         <p className="text-base sm:text-lg text-slate-600 leading-relaxed">
-          From full 100% foreign-owned mainland enterprises to cost-effective free zone formations, investor residency permits, and corporate banking compliance.
+          {content.subheadline}
         </p>
 
         {/* Filter Tabs */}
