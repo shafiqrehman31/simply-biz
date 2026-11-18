@@ -30,6 +30,7 @@ import {
   updateLeadStatusInFirestore
 } from '../services/storage';
 import { getEmailLogs, getEmailLogsForLead, subscribeToEmailLogs, sendTestEmail } from '../services/emailService';
+import { AdminVideoManager } from '../components/AdminVideoManager';
 import { 
   Users, 
   Sliders, 
@@ -58,7 +59,8 @@ import {
   LogOut,
   AlertTriangle,
   ArrowLeft,
-  Mail
+  Mail,
+  Video
 } from 'lucide-react';
 
 interface AdminPageProps {
@@ -234,7 +236,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
     setLoginPassword('');
   };
 
-  const [activeTab, setActiveTab] = useState<'leads' | 'pipedrive' | 'branding' | 'cms' | 'users' | 'emails'>('leads');
+  const [activeTab, setActiveTab] = useState<'leads' | 'pipedrive' | 'branding' | 'cms' | 'videos' | 'users' | 'emails'>('leads');
   const [leads, setLeads] = useState<Lead[]>(getLeads());
   const [emailLogs, setEmailLogs] = useState<EmailLog[]>(getEmailLogs());
   const [selectedEmailPreview, setSelectedEmailPreview] = useState<EmailLog | null>(null);
@@ -946,6 +948,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
         {[
           { id: 'leads', label: `Inquiries & Leads (${leads.length})`, icon: Users },
           { id: 'emails', label: `Dispatched Emails (${emailLogs.length})`, icon: Mail },
+          { id: 'videos', label: `Video Uploads (${(cmsData.videos || []).length || 1})`, icon: Video },
           { id: 'pipedrive', label: 'Pipedrive CRM Settings', icon: Database },
           { id: 'branding', label: 'Logos & Branding', icon: Image },
           { id: 'cms', label: 'Content Management (CMS)', icon: Sliders },
@@ -2713,6 +2716,15 @@ export const AdminPage: React.FC<AdminPageProps> = ({
           )}
 
         </div>
+      )}
+
+      {/* ================= TAB: VIDEO UPLOADS ================= */}
+      {activeTab === 'videos' && (
+        <AdminVideoManager
+          cmsData={cmsData}
+          onUpdateCMS={onUpdateCMS}
+          onSaveSuccess={triggerSaveSuccess}
+        />
       )}
 
       {/* ================= TAB 5: USER PROFILES ================= */}

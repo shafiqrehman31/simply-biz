@@ -5,7 +5,9 @@ import {
   SiteBranding, 
   AboutPageContent, 
   WhyUsPageContent, 
-  ServicesPageContent 
+  ServicesPageContent,
+  VideoItem,
+  VideoSectionContent
 } from '../types';
 import { APP_IMAGES } from '../assets/images';
 import { sendQuoteEmails } from './emailService';
@@ -107,12 +109,37 @@ export const DEFAULT_SERVICES_PAGE_CONTENT: ServicesPageContent = {
   estimatorNote: 'This interactive calculator provides preliminary estimates based on standard DED and top Free Zone published tariffs. Your final binding quote will include itemized government immigration card and VIP medical processing fees.'
 };
 
+export const DEFAULT_VIDEO_SECTION_CONTENT: VideoSectionContent = {
+  badgeText: 'Video Briefing',
+  headline: 'Inside UAE Business Formation with Simply Biz',
+  subheadline: 'Watch our senior corporate advisors break down Mainland vs. Free Zone licensing, 100% foreign ownership, investor residence visas, and how itemized quotations protect you from hidden fees.',
+};
+
+export const DEFAULT_VIDEOS: VideoItem[] = [
+  {
+    id: 'video-default-1',
+    title: 'Launch Your Dubai Business Without the Hassle',
+    description: 'Discover how Simply Biz delivers transparent itemized tariffs for Dubai Mainland and Free Zone company setups, 100% foreign ownership, and investor residence visas.',
+    category: 'UAE Business Setup Guide',
+    videoUrl: '/assets/aistudio/simple-biz_b55205de.mp4',
+    sourceType: 'local',
+    fileName: 'simple-biz.mp4',
+    orientation: 'portrait',
+    isActive: true,
+    isFeatured: true,
+    order: 1,
+    createdAt: new Date().toISOString(),
+  },
+];
+
 export const DEFAULT_CMS_DATA: CMSData = {
   branding: DEFAULT_BRANDING,
   pipedrive: DEFAULT_PIPEDRIVE,
   aboutContent: DEFAULT_ABOUT_CONTENT,
   whyUsContent: DEFAULT_WHY_US_CONTENT,
   servicesContent: DEFAULT_SERVICES_PAGE_CONTENT,
+  videoSectionContent: DEFAULT_VIDEO_SECTION_CONTENT,
+  videos: DEFAULT_VIDEOS,
   heroSlides: [
     {
       id: 'slide-1',
@@ -453,6 +480,11 @@ export function getCMSData(): CMSData {
     data.aboutContent = { ...DEFAULT_ABOUT_CONTENT, ...(data.aboutContent || {}) };
     data.whyUsContent = { ...DEFAULT_WHY_US_CONTENT, ...(data.whyUsContent || {}) };
     data.servicesContent = { ...DEFAULT_SERVICES_PAGE_CONTENT, ...(data.servicesContent || {}) };
+    data.videoSectionContent = { ...DEFAULT_VIDEO_SECTION_CONTENT, ...(data.videoSectionContent || {}) };
+
+    if (!data.videos || data.videos.length === 0) {
+      data.videos = DEFAULT_VIDEOS;
+    }
 
     if (data.heroSlides) {
       const defaultImgs = [APP_IMAGES.heroDubai, APP_IMAGES.heroExecutive, APP_IMAGES.heroDistrict];

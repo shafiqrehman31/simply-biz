@@ -65,6 +65,9 @@ export interface SiteBranding {
   faviconUrl: string;
   primaryColor: string;
   accentColor: string;
+  facebookUrl?: string;
+  instagramUrl?: string;
+  linkedinUrl?: string;
 }
 
 export interface HeroSlide {
@@ -121,6 +124,66 @@ export interface AdminUser {
   lastActive: string;
 }
 
+export interface AboutPillar {
+  title: string;
+  desc: string;
+}
+
+export interface AboutPageContent {
+  badgeText: string;
+  headline: string;
+  subheadline: string;
+  imageUrl: string;
+  guidingPrincipleTitle: string;
+  guidingPrincipleText: string;
+  guidingPrincipleBullets: string[];
+  pillars: AboutPillar[];
+}
+
+export interface WhyUsStep {
+  num: string;
+  title: string;
+  desc: string;
+}
+
+export interface WhyUsPageContent {
+  badgeText: string;
+  headline: string;
+  subheadline: string;
+  guaranteeTitle: string;
+  guaranteeDesc: string;
+  steps: WhyUsStep[];
+}
+
+export interface ServicesPageContent {
+  badgeText: string;
+  headline: string;
+  subheadline: string;
+  estimatorNote: string;
+}
+
+export interface VideoItem {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  videoUrl: string;
+  sourceType: 'local' | 'uploaded' | 'url' | 'embed';
+  fileName?: string;
+  fileSizeBytes?: number;
+  orientation: 'auto' | 'portrait' | 'landscape';
+  isActive: boolean;
+  isFeatured: boolean;
+  order: number;
+  createdAt: string;
+}
+
+export interface VideoSectionContent {
+  badgeText: string;
+  headline: string;
+  subheadline: string;
+}
+
 export interface CMSData {
   branding: SiteBranding;
   pipedrive: PipedriveConfig;
@@ -129,4 +192,9 @@ export interface CMSData {
   faqs: FAQItem[];
   testimonials: TestimonialItem[];
   adminUsers: AdminUser[];
+  aboutContent?: AboutPageContent;
+  whyUsContent?: WhyUsPageContent;
+  servicesContent?: ServicesPageContent;
+  videos?: VideoItem[];
+  videoSectionContent?: VideoSectionContent;
 }

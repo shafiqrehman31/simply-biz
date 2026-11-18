@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { PageRoute, CMSData } from '../types';
 import { HeroCarousel } from '../components/HeroCarousel';
+import { VideoShowcaseSection } from '../components/VideoShowcaseSection';
 import { 
   Building2, 
   Globe, 
@@ -154,6 +155,14 @@ export const HomePage: React.FC<HomePageProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Video Showcase Section */}
+      <VideoShowcaseSection
+        videos={cmsData.videos}
+        sectionContent={cmsData.videoSectionContent}
+        onNavigate={onNavigate}
+        onOpenQuoteModal={onOpenQuoteModal}
+      />
 
       {/* Featured Services Section */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
