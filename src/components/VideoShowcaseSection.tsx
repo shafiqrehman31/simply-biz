@@ -7,7 +7,16 @@ import {
   parseEmbedUrl,
   resolveVideoUrl,
 } from '../services/videoStorage';
-import { ArrowRight, Check, Film, Loader2, Play, AlertCircle } from 'lucide-react';
+import {
+  ArrowRight,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Film,
+  Loader2,
+  Play,
+  AlertCircle,
+} from 'lucide-react';
 
 interface VideoShowcaseSectionProps {
   videos?: VideoItem[];
@@ -49,10 +58,10 @@ const VideoThumbnailCard: React.FC<{
     <button
       type="button"
       onClick={onSelect}
-      className={`group w-36 sm:w-full shrink-0 text-left rounded-2xl p-2 transition-all cursor-pointer ${
+      className={`group w-40 sm:w-44 shrink-0 text-left rounded-2xl p-2 transition-all cursor-pointer ${
         isSelected
           ? 'neo-inset bg-white ring-2 ring-[#f85508]'
-          : 'neo-box bg-white/60 hover:bg-white'
+          : 'neo-box bg-white/70 hover:bg-white'
       }`}
     >
       <div className="relative w-full aspect-video rounded-xl overflow-hidden bg-slate-900">
@@ -94,7 +103,7 @@ const VideoThumbnailCard: React.FC<{
 
       <div className="pt-2 px-1 space-y-0.5">
         <div
-          className={`text-[11px] font-bold leading-tight line-clamp-2 ${
+          className={`text-[11px] font-bold leading-tight line-clamp-1 ${
             isSelected ? 'text-[#f85508]' : 'text-[#00106b]'
           }`}
         >
@@ -129,6 +138,7 @@ export const VideoShowcaseSection: React.FC<VideoShowcaseSectionProps> = ({
   const [detectedOrientation, setDetectedOrientation] = useState<'portrait' | 'landscape'>('portrait');
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const thumbStripRef = useRef<HTMLDivElement | null>(null);
   const autoPlayOnSelectRef = useRef<boolean>(false);
 
   const activeVideo =
@@ -167,7 +177,7 @@ export const VideoShowcaseSection: React.FC<VideoShowcaseSectionProps> = ({
           setIsBuffering(false);
           if (missingLocalBlob || isIndexedDbUrl(activeVideo.videoUrl)) {
             setVideoError(
-              'This video was stored only in the uploading browser. Re-upload it in Admin → Video Uploads so it plays across all browsers.'
+              'This video was stored only in the uploading browser. Add it via Video URL in Admin → Video Uploads so it plays across all browsers.'
             );
           } else {
             setVideoError('Video file is currently unavailable.');
@@ -212,12 +222,18 @@ export const VideoShowcaseSection: React.FC<VideoShowcaseSectionProps> = ({
     setSelectedVideoId(videoId);
   };
 
+  const scrollThumbnails = (direction: 'left' | 'right') => {
+    if (!thumbStripRef.current) return;
+    const offset = direction === 'left' ? -240 : 240;
+    thumbStripRef.current.scrollBy({ left: offset, behavior: 'smooth' });
+  };
+
   return (
     <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div className="neo-box rounded-3xl p-7 sm:p-10 lg:p-12 border border-white/80">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-center">
-          {/* Left Column: Editorial Context & Action Buttons */}
-          <div className="lg:col-span-5 space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
+          {/* Left Column: Copy, Active Video Summary, Scrollable Thumbnails above CTA, and Buttons */}
+          <div className="lg:col-span-6 space-y-6 min-w-0">
             <div className="space-y-3">
               <div className="text-xs font-bold tracking-widest text-[#f85508] uppercase">
                 {copy.badgeText}
@@ -268,6 +284,50 @@ export const VideoShowcaseSection: React.FC<VideoShowcaseSectionProps> = ({
               </ul>
             </div>
 
+            {/* Scrollable Video Thumbnail Strip (Directly Above Get Free Itemized Quote) */}
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                  <Film className="w-3.5 h-3.5 text-[#f85508]" />
+                  <span>Video Briefings ({activeVideos.length})</span>
+                </div>
+                {activeVideos.length > 2 && (
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => scrollThumbnails('left')}
+                      aria-label="Scroll thumbnails left"
+                      className="w-7 h-7 rounded-lg neo-box flex items-center justify-center text-[#00106b] hover:text-[#f85508] cursor-pointer"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => scrollThumbnails('right')}
+                      aria-label="Scroll thumbnails right"
+                      className="w-7 h-7 rounded-lg neo-box flex items-center justify-center text-[#00106b] hover:text-[#f85508] cursor-pointer"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <div
+                ref={thumbStripRef}
+                className="flex items-stretch gap-3 overflow-x-auto scroll-smooth pb-2 px-0.5"
+              >
+                {activeVideos.map((vid) => (
+                  <VideoThumbnailCard
+                    key={vid.id}
+                    video={vid}
+                    isSelected={vid.id === activeVideo.id}
+                    onSelect={() => handleSelectThumbnail(vid.id)}
+                  />
+                ))}
+              </div>
+            </div>
+
             {/* Action Buttons */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-1">
               <button
@@ -288,12 +348,11 @@ export const VideoShowcaseSection: React.FC<VideoShowcaseSectionProps> = ({
             </div>
           </div>
 
-          {/* Right Column: Main Adaptive Video Player + Small Thumbnail Rail on the Right Side */}
-          <div className="lg:col-span-7 flex flex-col sm:flex-row items-center sm:items-start justify-center gap-5">
-            {/* Active Video Player Frame */}
+          {/* Right Column: Clean Adaptive Video Player Frame */}
+          <div className="lg:col-span-6 flex justify-center">
             <div
               className={`w-full neo-inset rounded-3xl p-3 sm:p-4 bg-white/70 ${
-                isPortrait && !embedUrl ? 'max-w-[320px]' : 'flex-1 max-w-xl'
+                isPortrait && !embedUrl ? 'max-w-[340px]' : 'max-w-2xl'
               }`}
             >
               <div
@@ -361,7 +420,7 @@ export const VideoShowcaseSection: React.FC<VideoShowcaseSectionProps> = ({
                       onError={() => {
                         setIsBuffering(false);
                         setVideoError(
-                          'Unable to play this video format in the current browser. Please re-upload it in Admin → Video Uploads to convert it to universal MP4.'
+                          'Unable to play this video format in the current browser.'
                         );
                       }}
                       className="w-full h-full object-contain bg-black"
@@ -384,24 +443,6 @@ export const VideoShowcaseSection: React.FC<VideoShowcaseSectionProps> = ({
               <div className="flex items-center justify-between gap-3 pt-3 px-1 text-[11px] text-slate-500 font-medium">
                 <span className="truncate font-semibold text-[#00106b]">{activeVideo.title}</span>
                 <span className="shrink-0">www.simply-biz.com</span>
-              </div>
-            </div>
-
-            {/* Right-Side Small Video Thumbnails Rail */}
-            <div className="w-full sm:w-44 lg:w-48 shrink-0 space-y-2.5">
-              <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5 px-1">
-                <Film className="w-3.5 h-3.5 text-[#f85508]" />
-                <span>Videos ({activeVideos.length})</span>
-              </div>
-              <div className="flex flex-row sm:flex-col gap-3 overflow-x-auto sm:overflow-y-auto sm:max-h-[540px] pb-2 sm:pb-0 sm:pr-1">
-                {activeVideos.map((vid) => (
-                  <VideoThumbnailCard
-                    key={vid.id}
-                    video={vid}
-                    isSelected={vid.id === activeVideo.id}
-                    onSelect={() => handleSelectThumbnail(vid.id)}
-                  />
-                ))}
               </div>
             </div>
           </div>

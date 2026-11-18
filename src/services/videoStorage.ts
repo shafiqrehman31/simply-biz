@@ -56,6 +56,18 @@ export function buildIndexedDbUrl(id: string): string {
   return `${IDB_PREFIX}${id}`;
 }
 
+export async function checkServerUploadAvailable(): Promise<boolean> {
+  try {
+    const res = await fetch('/api/health', { method: 'GET' });
+    const ct = res.headers.get('content-type') || '';
+    if (!res.ok || !ct.includes('application/json')) return false;
+    const data = await res.json();
+    return Boolean(data?.ok);
+  } catch {
+    return false;
+  }
+}
+
 export async function uploadVideoToServer(file: File): Promise<ServerUploadResult> {
   const response = await fetch('/api/videos/upload', {
     method: 'POST',
@@ -68,7 +80,7 @@ export async function uploadVideoToServer(file: File): Promise<ServerUploadResul
 
   const contentType = response.headers.get('content-type') || '';
   if (!contentType.includes('application/json')) {
-    throw new Error('Server upload endpoint is unavailable in static-only hosting.');
+    throw new Error('STATIC_HOSTING_NO_UPLOAD_SERVER');
   }
 
   const data = await response.json();
@@ -78,7 +90,6 @@ export async function uploadVideoToServer(file: File): Promise<ServerUploadResul
 
   const result = data as ServerUploadResult;
 
-  // Use absolute origin URL on hosted environments so shared/preview origins can stream it too
   if (
     typeof window !== 'undefined' &&
     window.location.hostname !== 'localhost' &&
@@ -95,7 +106,6 @@ export async function deleteVideoFromServer(videoUrl: string): Promise<void> {
   const filename = extractServerStreamFilename(videoUrl);
   if (!filename) return;
   try {
-    // Delete against current origin first (and original origin if different)
     await fetch(`/api/videos/${encodeURIComponent(filename)}`, {
       method: 'DELETE',
     });
@@ -160,6 +170,22 @@ export async function deleteVideoBlob(id: string): Promise<void> {
   }
 }
 
+export function normalizeDirectVideoUrl(url: string): string {
+  const trimmed = url.trim();
+  // Convert Dropbox share URL (?dl=0 or ?dl=1) to direct streamable URL (?raw=1)
+  if (/dropbox\.com\//i.test(trimmed)) {
+    try {
+      const parsed = new URL(trimmed);
+      parsed.searchParams.delete('dl');
+      parsed.searchParams.set('raw', '1');
+      return parsed.toString();
+    } catch {
+      return trimmed;
+    }
+  }
+  return trimmed;
+}
+
 export async function resolveVideoUrl(
   videoUrl: string
 ): Promise<{ url: string; isObjectUrl: boolean; missingLocalBlob?: boolean }> {
@@ -177,7 +203,7 @@ export async function resolveVideoUrl(
     return { url: objectUrl, isObjectUrl: true };
   }
 
-  return { url: videoUrl, isObjectUrl: false };
+  return { url: normalizeDirectVideoUrl(videoUrl), isObjectUrl: false };
 }
 
 export function extractYouTubeId(url: string): string | null {
@@ -207,7 +233,7 @@ export function parseEmbedUrl(url: string): string | null {
   }
 
   // Google Drive shared video links
-  const driveMatch = trimmed.match(/drive\.google\.com\/file\/d\/([A-Za-z0-9_-]+)/);
+  const driveMatch = trimmed.match(/drive\.google\.com\/(?:file\/d\/|open\?id=)([A-Za-z0-9_-]+)/);
   if (driveMatch?.[1]) {
     return `https://drive.google.com/file/d/${driveMatch[1]}/preview`;
   }

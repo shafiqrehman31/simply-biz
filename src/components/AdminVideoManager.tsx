@@ -11,14 +11,18 @@ import {
   syncVideosFromFirestore,
 } from '../services/storage';
 import {
+  buildIndexedDbUrl,
+  checkServerUploadAvailable,
   deleteVideoBlob,
   deleteVideoFromServer,
   extractIndexedDbId,
   formatFileSize,
   isIndexedDbUrl,
   isServerStreamUrl,
+  normalizeDirectVideoUrl,
   parseEmbedUrl,
   resolveVideoUrl,
+  saveVideoBlob,
   uploadVideoToServer,
 } from '../services/videoStorage';
 import {
@@ -97,7 +101,7 @@ const AdminVideoPreview: React.FC<{ video: VideoItem }> = ({ video }) => {
         <Video className="w-6 h-6 text-[#f85508]" />
         <span>
           {missingLocal
-            ? 'Saved in another browser only — re-upload to stream across browsers'
+            ? 'Saved in another browser only'
             : playError
             ? 'Preview unsupported in this browser'
             : 'Preview unavailable'}
@@ -132,8 +136,12 @@ export const AdminVideoManager: React.FC<AdminVideoManagerProps> = ({
     cmsData.videoSectionContent || DEFAULT_VIDEO_SECTION_CONTENT
   );
 
+  // Environment capability check (Express upload server vs static CDN like Vercel)
+  const [serverUploadAvailable, setServerUploadAvailable] = useState<boolean>(true);
+  const [checkedServer, setCheckedServer] = useState<boolean>(false);
+
   // Upload form state
-  const [uploadMode, setUploadMode] = useState<'file' | 'url'>('file');
+  const [uploadMode, setUploadMode] = useState<'file' | 'url'>('url');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [filePreviewUrl, setFilePreviewUrl] = useState<string>('');
   const [externalUrl, setExternalUrl] = useState<string>('');
@@ -145,6 +153,7 @@ export const AdminVideoManager: React.FC<AdminVideoManagerProps> = ({
   const [isUploading, setIsUploading] = useState<boolean>(false);
   const [uploadStatusText, setUploadStatusText] = useState<string>('');
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [showStaticFileGuidance, setShowStaticFileGuidance] = useState<boolean>(false);
 
   // Library operations state
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
@@ -162,6 +171,13 @@ export const AdminVideoManager: React.FC<AdminVideoManagerProps> = ({
 
   useEffect(() => {
     let active = true;
+    checkServerUploadAvailable().then((available) => {
+      if (!active) return;
+      setServerUploadAvailable(available);
+      setCheckedServer(true);
+      setUploadMode(available ? 'file' : 'url');
+    });
+
     syncVideosFromFirestore()
       .then((synced) => {
         if (!active) return;
@@ -171,6 +187,7 @@ export const AdminVideoManager: React.FC<AdminVideoManagerProps> = ({
         });
       })
       .catch(() => {});
+
     return () => {
       active = false;
     };
@@ -218,6 +235,7 @@ export const AdminVideoManager: React.FC<AdminVideoManagerProps> = ({
 
   const handleFileSelected = (file: File | null) => {
     setUploadError(null);
+    setShowStaticFileGuidance(false);
     if (filePreviewUrl) {
       URL.revokeObjectURL(filePreviewUrl);
       setFilePreviewUrl('');
@@ -242,10 +260,48 @@ export const AdminVideoManager: React.FC<AdminVideoManagerProps> = ({
     }
   };
 
+  const publishVideoItem = async (newVideo: VideoItem, saveToCloud: boolean) => {
+    const baseVideos = newVideo.isFeatured
+      ? videos.map((v) => ({ ...v, isFeatured: false }))
+      : videos;
+
+    const updatedVideos = [newVideo, ...baseVideos];
+
+    if (saveToCloud) {
+      setUploadStatusText('Syncing video to Cloud Database...');
+      if (newVideo.isFeatured) {
+        await syncAllVideosToCloud(updatedVideos);
+      } else {
+        await saveVideoToCloud(newVideo);
+      }
+    }
+
+    const updatedCMS: CMSData = {
+      ...cmsData,
+      videos: updatedVideos,
+    };
+    onUpdateCMS(updatedCMS);
+    saveCMSData(updatedCMS);
+
+    setSelectedFile(null);
+    if (filePreviewUrl) {
+      URL.revokeObjectURL(filePreviewUrl);
+      setFilePreviewUrl('');
+    }
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    setExternalUrl('');
+    setTitle('');
+    setDescription('');
+    setOrientation('auto');
+    setIsFeaturedNew(false);
+    setShowStaticFileGuidance(false);
+  };
+
   const handlePublishVideo = async (e: React.FormEvent) => {
     e.preventDefault();
     setUploadError(null);
     setLibraryError(null);
+    setShowStaticFileGuidance(false);
 
     if (!title.trim()) {
       setUploadError('Please enter a video title before publishing.');
@@ -258,12 +314,12 @@ export const AdminVideoManager: React.FC<AdminVideoManagerProps> = ({
     }
 
     if (uploadMode === 'url' && !externalUrl.trim()) {
-      setUploadError('Please enter a video URL or YouTube / Vimeo link.');
+      setUploadError('Please enter a video URL, YouTube, Vimeo, Google Drive, or Dropbox link.');
       return;
     }
 
     setIsUploading(true);
-    setUploadStatusText('Uploading video...');
+    setUploadStatusText('Publishing video...');
 
     try {
       let id = `video-${Date.now()}`;
@@ -277,7 +333,7 @@ export const AdminVideoManager: React.FC<AdminVideoManagerProps> = ({
         fileName = selectedFile.name;
         fileSizeBytes = selectedFile.size;
 
-        setUploadStatusText('Uploading & normalizing video for all browsers...');
+        setUploadStatusText('Uploading & optimizing video for all browsers...');
         const serverResult = await uploadVideoToServer(selectedFile);
         id = serverResult.id;
         videoUrl = serverResult.videoUrl;
@@ -287,9 +343,9 @@ export const AdminVideoManager: React.FC<AdminVideoManagerProps> = ({
           resolvedOrientation = serverResult.detectedOrientation;
         }
       } else {
-        const trimmed = externalUrl.trim();
-        const embed = parseEmbedUrl(trimmed);
-        videoUrl = trimmed;
+        const normalized = normalizeDirectVideoUrl(externalUrl);
+        const embed = parseEmbedUrl(normalized);
+        videoUrl = normalized;
         sourceType = embed ? 'embed' : 'url';
       }
 
@@ -311,45 +367,14 @@ export const AdminVideoManager: React.FC<AdminVideoManagerProps> = ({
         createdAt: new Date().toISOString(),
       };
 
-      const baseVideos = newVideo.isFeatured
-        ? videos.map((v) => ({ ...v, isFeatured: false }))
-        : videos;
-
-      const updatedVideos = [newVideo, ...baseVideos];
-
-      setUploadStatusText('Syncing video to Cloud Database...');
-      if (newVideo.isFeatured) {
-        await syncAllVideosToCloud(updatedVideos);
-      } else {
-        await saveVideoToCloud(newVideo);
-      }
-
-      const updatedCMS: CMSData = {
-        ...cmsData,
-        videos: updatedVideos,
-      };
-      onUpdateCMS(updatedCMS);
-      saveCMSData(updatedCMS);
-
-      // Reset form
-      setSelectedFile(null);
-      if (filePreviewUrl) {
-        URL.revokeObjectURL(filePreviewUrl);
-        setFilePreviewUrl('');
-      }
-      if (fileInputRef.current) fileInputRef.current.value = '';
-      setExternalUrl('');
-      setTitle('');
-      setDescription('');
-      setOrientation('auto');
-      setIsFeaturedNew(false);
-
-      onSaveSuccess(`Video "${newVideo.title}" uploaded and synced across all browsers.`);
+      await publishVideoItem(newVideo, true);
+      onSaveSuccess(`Video "${newVideo.title}" published and synced across all browsers.`);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Failed to upload video. Please try again.';
-      if (msg.includes('unavailable in static-only hosting')) {
+      const msg = err instanceof Error ? err.message : 'Failed to publish video. Please try again.';
+      if (msg === 'STATIC_HOSTING_NO_UPLOAD_SERVER') {
+        setShowStaticFileGuidance(true);
         setUploadError(
-          'Direct file upload requires the Node server (npm run dev / npm start). On static-only hosting, switch to "Video URL" and paste a YouTube, Vimeo, Google Drive, or MP4 link so it works across all browsers.'
+          'This live domain uses static web hosting without a built-in media file server. To display your video to all visitors across every browser, host it on YouTube, Vimeo, Google Drive, or Dropbox and paste the share link under "Video URL".'
         );
       } else {
         setUploadError(msg);
@@ -357,6 +382,39 @@ export const AdminVideoManager: React.FC<AdminVideoManagerProps> = ({
     } finally {
       setIsUploading(false);
       setUploadStatusText('');
+    }
+  };
+
+  const handleSaveLocalBrowserPreview = async () => {
+    if (!selectedFile || !title.trim()) return;
+    setIsUploading(true);
+    setUploadError(null);
+    try {
+      const id = `video-${Date.now()}`;
+      await saveVideoBlob(id, selectedFile);
+      const newVideo: VideoItem = {
+        id,
+        title: title.trim(),
+        description:
+          description.trim() ||
+          'Expert UAE business setup briefing by Simply Biz corporate advisors.',
+        category: category.trim() || 'UAE Business Setup Guide',
+        videoUrl: buildIndexedDbUrl(id),
+        sourceType: 'uploaded',
+        fileName: selectedFile.name,
+        fileSizeBytes: selectedFile.size,
+        orientation,
+        isActive: true,
+        isFeatured: isFeaturedNew || videos.length === 0,
+        order: videos.length + 1,
+        createdAt: new Date().toISOString(),
+      };
+      await publishVideoItem(newVideo, false);
+      onSaveSuccess(`Video "${newVideo.title}" saved for local preview in this browser.`);
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : 'Failed to save local preview.');
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -464,12 +522,13 @@ export const AdminVideoManager: React.FC<AdminVideoManagerProps> = ({
   };
 
   const urlEmbedPreview = uploadMode === 'url' ? parseEmbedUrl(externalUrl) : null;
+  const normalizedUrlPreview = uploadMode === 'url' ? normalizeDirectVideoUrl(externalUrl) : '';
 
   return (
     <div className="space-y-8">
       {/* Top Grid: Upload Studio + Section Copy Editor */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left: Upload New Video Form */}
+        {/* Left: Publish Video Form */}
         <form
           onSubmit={handlePublishVideo}
           className="lg:col-span-7 neo-box rounded-3xl p-6 sm:p-8 space-y-5 border border-white"
@@ -478,33 +537,21 @@ export const AdminVideoManager: React.FC<AdminVideoManagerProps> = ({
             <div>
               <h3 className="text-xl font-bold text-[#00106b] flex items-center gap-2">
                 <Upload className="w-5 h-5 text-[#f85508]" />
-                <span>Upload Video to Showcase</span>
+                <span>Add Video to Showcase</span>
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
-                Automatically converts uploaded videos to universal MP4 (H.264/AAC) and syncs across all browsers.
+                {serverUploadAvailable
+                  ? 'Upload MP4/MOV/WebM files or paste a YouTube, Vimeo, Google Drive, Dropbox, or MP4 link.'
+                  : 'Paste a YouTube, Vimeo, Google Drive, Dropbox, or direct MP4 URL to publish across all browsers.'}
               </p>
             </div>
             <div className="flex items-center gap-1.5 neo-inset p-1 rounded-xl shrink-0">
               <button
                 type="button"
                 onClick={() => {
-                  setUploadMode('file');
-                  setUploadError(null);
-                }}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all ${
-                  uploadMode === 'file'
-                    ? 'bg-[#00106b] text-white shadow-sm'
-                    : 'text-slate-600 hover:text-[#00106b]'
-                }`}
-              >
-                <Upload className="w-3.5 h-3.5" />
-                <span>Upload File</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
                   setUploadMode('url');
                   setUploadError(null);
+                  setShowStaticFileGuidance(false);
                 }}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all ${
                   uploadMode === 'url'
@@ -515,12 +562,68 @@ export const AdminVideoManager: React.FC<AdminVideoManagerProps> = ({
                 <Link2 className="w-3.5 h-3.5" />
                 <span>Video URL</span>
               </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setUploadMode('file');
+                  setUploadError(null);
+                  setShowStaticFileGuidance(false);
+                }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all ${
+                  uploadMode === 'file'
+                    ? 'bg-[#00106b] text-white shadow-sm'
+                    : 'text-slate-600 hover:text-[#00106b]'
+                }`}
+              >
+                <Upload className="w-3.5 h-3.5" />
+                <span>Upload File</span>
+              </button>
             </div>
           </div>
 
+          {checkedServer && !serverUploadAvailable && uploadMode === 'file' && !uploadError && (
+            <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 space-y-2">
+              <div className="font-bold">Static Hosting Notice</div>
+              <p className="leading-relaxed">
+                This live website runs on static hosting, which does not include a media file server for raw uploads. Use <strong>Video URL</strong> (YouTube, Vimeo, Google Drive, Dropbox, or MP4 link) so visitors in every browser can watch your video.
+              </p>
+              <button
+                type="button"
+                onClick={() => setUploadMode('url')}
+                className="px-3 py-1.5 rounded-lg bg-[#00106b] text-white text-[11px] font-bold cursor-pointer"
+              >
+                Switch to Video URL
+              </button>
+            </div>
+          )}
+
           {uploadError && (
-            <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-xs font-semibold text-red-700 leading-relaxed">
-              {uploadError}
+            <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-xs font-semibold text-red-700 leading-relaxed space-y-2.5">
+              <div>{uploadError}</div>
+              {showStaticFileGuidance && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUploadMode('url');
+                      setUploadError(null);
+                      setShowStaticFileGuidance(false);
+                    }}
+                    className="px-3 py-1.5 rounded-lg bg-[#00106b] text-white text-[11px] font-bold cursor-pointer"
+                  >
+                    Switch to Video URL
+                  </button>
+                  {selectedFile && (
+                    <button
+                      type="button"
+                      onClick={handleSaveLocalBrowserPreview}
+                      className="px-3 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-700 text-[11px] font-bold cursor-pointer"
+                    >
+                      Save Preview for This Browser Only
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -582,11 +685,11 @@ export const AdminVideoManager: React.FC<AdminVideoManagerProps> = ({
           ) : (
             <div className="space-y-3">
               <label className="block text-xs font-bold text-slate-700">
-                Video URL, YouTube, Vimeo, or Google Drive Link
+                Video URL (YouTube, Vimeo, Google Drive, Dropbox, or Direct .MP4 Link)
               </label>
               <input
                 type="url"
-                placeholder="https://www.youtube.com/watch?v=... or https://example.com/video.mp4"
+                placeholder="https://www.youtube.com/watch?v=... or https://drive.google.com/file/d/... or https://.../video.mp4"
                 value={externalUrl}
                 onChange={(e) => setExternalUrl(e.target.value)}
                 className="w-full neo-inset rounded-xl px-3.5 py-2.5 text-xs text-slate-800"
@@ -602,7 +705,7 @@ export const AdminVideoManager: React.FC<AdminVideoManagerProps> = ({
                     />
                   ) : (
                     <video
-                      src={externalUrl.trim()}
+                      src={normalizedUrlPreview}
                       controls
                       playsInline
                       className="w-full h-full object-contain"
@@ -688,7 +791,13 @@ export const AdminVideoManager: React.FC<AdminVideoManagerProps> = ({
               className="neo-btn-orange px-6 py-3 rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer disabled:opacity-60 whitespace-nowrap"
             >
               <Plus className="w-4 h-4" />
-              <span>{isUploading ? 'Processing & Publishing...' : 'Upload & Publish Video'}</span>
+              <span>
+                {isUploading
+                  ? 'Publishing Video...'
+                  : uploadMode === 'url'
+                  ? 'Publish Video Link'
+                  : 'Upload & Publish Video'}
+              </span>
             </button>
           </div>
         </form>
@@ -759,7 +868,7 @@ export const AdminVideoManager: React.FC<AdminVideoManagerProps> = ({
               <span>Cross-Browser Playback</span>
             </div>
             <p className="leading-relaxed">
-              Uploaded videos are normalized to standard H.264 / AAC MP4 with byte-range streaming and synchronized in Cloud Firestore so every browser sees live updates and deletions immediately.
+              Videos added via YouTube, Vimeo, Google Drive, Dropbox, or MP4 links—and server-uploaded MP4s—sync in Cloud Firestore so every browser sees live updates and deletions immediately.
             </p>
           </div>
         </div>
@@ -800,7 +909,7 @@ export const AdminVideoManager: React.FC<AdminVideoManagerProps> = ({
             <Video className="w-10 h-10 text-slate-400 mx-auto" />
             <div className="text-sm font-bold text-[#00106b]">No videos in the library</div>
             <p className="text-xs text-slate-500 max-w-md mx-auto">
-              Upload a video file or paste a video link above to display the video showcase section on the homepage.
+              Add a Video URL or upload a video file above to display the video showcase section on the homepage.
             </p>
             <button
               type="button"
@@ -833,7 +942,7 @@ export const AdminVideoManager: React.FC<AdminVideoManagerProps> = ({
                         : vid.sourceType === 'local'
                         ? 'Built-in Asset'
                         : vid.sourceType === 'embed'
-                        ? 'YouTube / Vimeo'
+                        ? 'Embedded Link'
                         : 'External URL'}
                     </span>
                   </div>
