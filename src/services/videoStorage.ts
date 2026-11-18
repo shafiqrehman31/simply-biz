@@ -38,8 +38,14 @@ export function isIndexedDbUrl(url?: string): boolean {
   return Boolean(url && url.startsWith(IDB_PREFIX));
 }
 
+export function extractServerStreamFilename(url?: string): string | null {
+  if (!url) return null;
+  const match = url.match(/\/api\/videos\/stream\/([^/?#]+)/);
+  return match?.[1] || null;
+}
+
 export function isServerStreamUrl(url?: string): boolean {
-  return Boolean(url && url.startsWith(SERVER_STREAM_PREFIX));
+  return Boolean(extractServerStreamFilename(url));
 }
 
 export function extractIndexedDbId(url: string): string {
@@ -70,17 +76,37 @@ export async function uploadVideoToServer(file: File): Promise<ServerUploadResul
     throw new Error(data?.error || `Upload failed with status ${response.status}`);
   }
 
-  return data as ServerUploadResult;
+  const result = data as ServerUploadResult;
+
+  // Use absolute origin URL on hosted environments so shared/preview origins can stream it too
+  if (
+    typeof window !== 'undefined' &&
+    window.location.hostname !== 'localhost' &&
+    window.location.hostname !== '127.0.0.1' &&
+    result.videoUrl.startsWith('/')
+  ) {
+    result.videoUrl = `${window.location.origin}${result.videoUrl}`;
+  }
+
+  return result;
 }
 
 export async function deleteVideoFromServer(videoUrl: string): Promise<void> {
-  if (!isServerStreamUrl(videoUrl)) return;
-  const filename = videoUrl.slice(SERVER_STREAM_PREFIX.length);
+  const filename = extractServerStreamFilename(videoUrl);
   if (!filename) return;
   try {
+    // Delete against current origin first (and original origin if different)
     await fetch(`/api/videos/${encodeURIComponent(filename)}`, {
       method: 'DELETE',
     });
+    if (/^https?:\/\//i.test(videoUrl)) {
+      const parsed = new URL(videoUrl);
+      if (typeof window !== 'undefined' && parsed.origin !== window.location.origin) {
+        await fetch(`${parsed.origin}/api/videos/${encodeURIComponent(filename)}`, {
+          method: 'DELETE',
+        });
+      }
+    }
   } catch (err) {
     console.warn('Unable to delete video file from server:', err);
   }
@@ -154,20 +180,36 @@ export async function resolveVideoUrl(
   return { url: videoUrl, isObjectUrl: false };
 }
 
+export function extractYouTubeId(url: string): string | null {
+  if (!url) return null;
+  const match = url.trim().match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/|youtube\.com\/embed\/)([A-Za-z0-9_-]{6,})/);
+  return match?.[1] || null;
+}
+
+export function getYouTubeThumbnailUrl(url: string): string | null {
+  const ytId = extractYouTubeId(url);
+  return ytId ? `https://img.youtube.com/vi/${ytId}/mqdefault.jpg` : null;
+}
+
 export function parseEmbedUrl(url: string): string | null {
   if (!url) return null;
   const trimmed = url.trim();
 
-  // YouTube standard, shorts, or youtu.be
-  const ytWatchMatch = trimmed.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/|youtube\.com\/embed\/)([A-Za-z0-9_-]{6,})/);
-  if (ytWatchMatch?.[1]) {
-    return `https://www.youtube.com/embed/${ytWatchMatch[1]}?rel=0`;
+  const ytId = extractYouTubeId(trimmed);
+  if (ytId) {
+    return `https://www.youtube.com/embed/${ytId}?rel=0`;
   }
 
   // Vimeo
   const vimeoMatch = trimmed.match(/vimeo\.com\/(?:video\/)?(\d+)/);
   if (vimeoMatch?.[1]) {
     return `https://player.vimeo.com/video/${vimeoMatch[1]}`;
+  }
+
+  // Google Drive shared video links
+  const driveMatch = trimmed.match(/drive\.google\.com\/file\/d\/([A-Za-z0-9_-]+)/);
+  if (driveMatch?.[1]) {
+    return `https://drive.google.com/file/d/${driveMatch[1]}/preview`;
   }
 
   return null;

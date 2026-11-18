@@ -1,8 +1,13 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { PageRoute, VideoItem, VideoSectionContent } from '../types';
-import { DEFAULT_VIDEOS, DEFAULT_VIDEO_SECTION_CONTENT } from '../services/storage';
-import { isIndexedDbUrl, parseEmbedUrl, resolveVideoUrl } from '../services/videoStorage';
-import { ArrowRight, Check, Film, Play, AlertCircle } from 'lucide-react';
+import { DEFAULT_VIDEO_SECTION_CONTENT } from '../services/storage';
+import {
+  getYouTubeThumbnailUrl,
+  isIndexedDbUrl,
+  parseEmbedUrl,
+  resolveVideoUrl,
+} from '../services/videoStorage';
+import { ArrowRight, Check, Film, Loader2, Play, AlertCircle } from 'lucide-react';
 
 interface VideoShowcaseSectionProps {
   videos?: VideoItem[];
@@ -11,13 +16,103 @@ interface VideoShowcaseSectionProps {
   onOpenQuoteModal?: () => void;
 }
 
+const VideoThumbnailCard: React.FC<{
+  video: VideoItem;
+  isSelected: boolean;
+  onSelect: () => void;
+}> = ({ video, isSelected, onSelect }) => {
+  const [thumbSrc, setThumbSrc] = useState<string>('');
+  const ytThumb = getYouTubeThumbnailUrl(video.videoUrl);
+  const embedUrl = parseEmbedUrl(video.videoUrl);
+
+  useEffect(() => {
+    if (ytThumb || embedUrl) return;
+    let cancelled = false;
+    let objUrl: string | null = null;
+
+    resolveVideoUrl(video.videoUrl).then(({ url, isObjectUrl }) => {
+      if (cancelled) {
+        if (isObjectUrl && url) URL.revokeObjectURL(url);
+        return;
+      }
+      if (isObjectUrl) objUrl = url;
+      setThumbSrc(url);
+    });
+
+    return () => {
+      cancelled = true;
+      if (objUrl) URL.revokeObjectURL(objUrl);
+    };
+  }, [video.videoUrl, ytThumb, embedUrl]);
+
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={`group w-36 sm:w-full shrink-0 text-left rounded-2xl p-2 transition-all cursor-pointer ${
+        isSelected
+          ? 'neo-inset bg-white ring-2 ring-[#f85508]'
+          : 'neo-box bg-white/60 hover:bg-white'
+      }`}
+    >
+      <div className="relative w-full aspect-video rounded-xl overflow-hidden bg-slate-900">
+        {ytThumb ? (
+          <img
+            src={ytThumb}
+            alt={video.title}
+            className="w-full h-full object-cover"
+          />
+        ) : thumbSrc ? (
+          <video
+            src={`${thumbSrc}#t=0.5`}
+            muted
+            playsInline
+            preload="metadata"
+            className="w-full h-full object-cover pointer-events-none"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-slate-400">
+            <Film className="w-5 h-5" />
+          </div>
+        )}
+        <div
+          className={`absolute inset-0 flex items-center justify-center transition-colors ${
+            isSelected ? 'bg-black/15' : 'bg-black/30 group-hover:bg-black/15'
+          }`}
+        >
+          <div
+            className={`w-7 h-7 rounded-full flex items-center justify-center shadow-md ${
+              isSelected
+                ? 'bg-[#f85508] text-white'
+                : 'bg-white/90 text-[#00106b]'
+            }`}
+          >
+            <Play className="w-3.5 h-3.5 fill-current ml-0.5" />
+          </div>
+        </div>
+      </div>
+
+      <div className="pt-2 px-1 space-y-0.5">
+        <div
+          className={`text-[11px] font-bold leading-tight line-clamp-2 ${
+            isSelected ? 'text-[#f85508]' : 'text-[#00106b]'
+          }`}
+        >
+          {video.title}
+        </div>
+        <div className="text-[10px] text-slate-500 truncate">{video.category}</div>
+      </div>
+    </button>
+  );
+};
+
 export const VideoShowcaseSection: React.FC<VideoShowcaseSectionProps> = ({
   videos,
   sectionContent,
   onNavigate,
   onOpenQuoteModal,
 }) => {
-  const activeVideos = (videos && videos.length > 0 ? videos : DEFAULT_VIDEOS)
+  const activeVideos = (videos ?? [])
     .filter((v) => v.isActive !== false)
     .sort((a, b) => {
       if (a.isFeatured !== b.isFeatured) return a.isFeatured ? -1 : 1;
@@ -25,12 +120,16 @@ export const VideoShowcaseSection: React.FC<VideoShowcaseSectionProps> = ({
     });
 
   const [selectedVideoId, setSelectedVideoId] = useState<string>(
-    activeVideos[0]?.id || DEFAULT_VIDEOS[0].id
+    activeVideos[0]?.id || ''
   );
   const [resolvedSrc, setResolvedSrc] = useState<string>('');
   const [isLoadingSrc, setIsLoadingSrc] = useState<boolean>(false);
+  const [isBuffering, setIsBuffering] = useState<boolean>(false);
   const [videoError, setVideoError] = useState<string | null>(null);
   const [detectedOrientation, setDetectedOrientation] = useState<'portrait' | 'landscape'>('portrait');
+
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const autoPlayOnSelectRef = useRef<boolean>(false);
 
   const activeVideo =
     activeVideos.find((v) => v.id === selectedVideoId) || activeVideos[0];
@@ -49,6 +148,7 @@ export const VideoShowcaseSection: React.FC<VideoShowcaseSectionProps> = ({
 
     setVideoError(null);
     setIsLoadingSrc(true);
+    setIsBuffering(true);
 
     if (activeVideo.orientation === 'portrait' || activeVideo.orientation === 'landscape') {
       setDetectedOrientation(activeVideo.orientation);
@@ -64,6 +164,7 @@ export const VideoShowcaseSection: React.FC<VideoShowcaseSectionProps> = ({
           objectUrlToRevoke = url;
         }
         if (!url) {
+          setIsBuffering(false);
           if (missingLocalBlob || isIndexedDbUrl(activeVideo.videoUrl)) {
             setVideoError(
               'This video was stored only in the uploading browser. Re-upload it in Admin → Video Uploads so it plays across all browsers.'
@@ -76,6 +177,7 @@ export const VideoShowcaseSection: React.FC<VideoShowcaseSectionProps> = ({
       })
       .catch(() => {
         if (!cancelled) {
+          setIsBuffering(false);
           setVideoError('Unable to load the selected video.');
         }
       })
@@ -105,12 +207,17 @@ export const VideoShowcaseSection: React.FC<VideoShowcaseSectionProps> = ({
     activeVideo.orientation === 'portrait' ||
     (activeVideo.orientation === 'auto' && detectedOrientation === 'portrait');
 
+  const handleSelectThumbnail = (videoId: string) => {
+    autoPlayOnSelectRef.current = true;
+    setSelectedVideoId(videoId);
+  };
+
   return (
     <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div className="neo-box rounded-3xl p-7 sm:p-10 lg:p-12 border border-white/80">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-center">
-          {/* Left Column: Editorial Context, Highlights & Playlist */}
-          <div className="lg:col-span-6 space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-center">
+          {/* Left Column: Editorial Context & Action Buttons */}
+          <div className="lg:col-span-5 space-y-6">
             <div className="space-y-3">
               <div className="text-xs font-bold tracking-widest text-[#f85508] uppercase">
                 {copy.badgeText}
@@ -161,47 +268,6 @@ export const VideoShowcaseSection: React.FC<VideoShowcaseSectionProps> = ({
               </ul>
             </div>
 
-            {/* Video Selector List (shown when multiple active videos exist) */}
-            {activeVideos.length > 1 && (
-              <div className="space-y-2.5">
-                <div className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
-                  <Film className="w-3.5 h-3.5 text-[#f85508]" />
-                  <span>More Briefings ({activeVideos.length})</span>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  {activeVideos.map((vid) => {
-                    const isSelected = vid.id === activeVideo.id;
-                    return (
-                      <button
-                        key={vid.id}
-                        type="button"
-                        onClick={() => setSelectedVideoId(vid.id)}
-                        className={`text-left p-3 rounded-xl transition-all flex items-start gap-2.5 cursor-pointer ${
-                          isSelected
-                            ? 'neo-inset bg-white/80 text-[#00106b]'
-                            : 'neo-box text-slate-700 hover:text-[#00106b]'
-                        }`}
-                      >
-                        <div
-                          className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${
-                            isSelected
-                              ? 'bg-[#f85508] text-white'
-                              : 'bg-[#00106b]/10 text-[#00106b]'
-                          }`}
-                        >
-                          <Play className="w-3.5 h-3.5 fill-current" />
-                        </div>
-                        <div className="min-w-0">
-                          <div className="text-xs font-bold truncate">{vid.title}</div>
-                          <div className="text-[11px] text-slate-500 truncate">{vid.category}</div>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
             {/* Action Buttons */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-1">
               <button
@@ -222,11 +288,12 @@ export const VideoShowcaseSection: React.FC<VideoShowcaseSectionProps> = ({
             </div>
           </div>
 
-          {/* Right Column: Adaptive Video Player Frame */}
-          <div className="lg:col-span-6 flex justify-center">
+          {/* Right Column: Main Adaptive Video Player + Small Thumbnail Rail on the Right Side */}
+          <div className="lg:col-span-7 flex flex-col sm:flex-row items-center sm:items-start justify-center gap-5">
+            {/* Active Video Player Frame */}
             <div
               className={`w-full neo-inset rounded-3xl p-3 sm:p-4 bg-white/70 ${
-                isPortrait && !embedUrl ? 'max-w-[340px]' : 'max-w-2xl'
+                isPortrait && !embedUrl ? 'max-w-[320px]' : 'flex-1 max-w-xl'
               }`}
             >
               <div
@@ -244,12 +311,13 @@ export const VideoShowcaseSection: React.FC<VideoShowcaseSectionProps> = ({
                     src={embedUrl}
                     title={activeVideo.title}
                     className="w-full h-full border-0"
+                    onLoad={() => setIsBuffering(false)}
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                     allowFullScreen
                   />
                 ) : isLoadingSrc ? (
-                  <div className="w-full h-full flex flex-col items-center justify-center text-slate-300 text-xs gap-2 p-6 text-center">
-                    <Film className="w-7 h-7 text-[#f85508]" />
+                  <div className="w-full h-full flex flex-col items-center justify-center text-slate-300 text-xs gap-2.5 p-6 text-center">
+                    <Loader2 className="w-7 h-7 text-[#f85508] animate-spin" />
                     <span>Loading video stream...</span>
                   </div>
                 ) : videoError || !resolvedSrc ? (
@@ -260,30 +328,55 @@ export const VideoShowcaseSection: React.FC<VideoShowcaseSectionProps> = ({
                     </span>
                   </div>
                 ) : (
-                  <video
-                    key={resolvedSrc}
-                    src={resolvedSrc}
-                    controls
-                    playsInline
-                    preload="metadata"
-                    onLoadedMetadata={(e) => {
-                      if (activeVideo.orientation === 'auto') {
-                        const { videoWidth, videoHeight } = e.currentTarget;
-                        if (videoWidth && videoHeight) {
-                          setDetectedOrientation(videoHeight > videoWidth ? 'portrait' : 'landscape');
+                  <>
+                    <video
+                      ref={videoRef}
+                      key={resolvedSrc}
+                      src={resolvedSrc}
+                      controls
+                      playsInline
+                      preload="auto"
+                      onLoadStart={() => setIsBuffering(true)}
+                      onWaiting={() => setIsBuffering(true)}
+                      onStalled={() => setIsBuffering(true)}
+                      onLoadedMetadata={(e) => {
+                        if (activeVideo.orientation === 'auto') {
+                          const { videoWidth, videoHeight } = e.currentTarget;
+                          if (videoWidth && videoHeight) {
+                            setDetectedOrientation(
+                              videoHeight > videoWidth ? 'portrait' : 'landscape'
+                            );
+                          }
                         }
-                      }
-                    }}
-                    onError={() =>
-                      setVideoError(
-                        'Unable to play this video format in the current browser. Please re-upload it in Admin → Video Uploads to convert it to universal MP4.'
-                      )
-                    }
-                    className="w-full h-full object-contain bg-black"
-                  >
-                    <source src={resolvedSrc} type="video/mp4" />
-                    Your browser does not support embedded HTML5 video.
-                  </video>
+                      }}
+                      onLoadedData={() => setIsBuffering(false)}
+                      onCanPlay={() => {
+                        setIsBuffering(false);
+                        if (autoPlayOnSelectRef.current && videoRef.current) {
+                          autoPlayOnSelectRef.current = false;
+                          videoRef.current.play().catch(() => {});
+                        }
+                      }}
+                      onPlaying={() => setIsBuffering(false)}
+                      onError={() => {
+                        setIsBuffering(false);
+                        setVideoError(
+                          'Unable to play this video format in the current browser. Please re-upload it in Admin → Video Uploads to convert it to universal MP4.'
+                        );
+                      }}
+                      className="w-full h-full object-contain bg-black"
+                    >
+                      <source src={resolvedSrc} type="video/mp4" />
+                      Your browser does not support embedded HTML5 video.
+                    </video>
+
+                    {isBuffering && (
+                      <div className="pointer-events-none absolute inset-0 bg-slate-950/55 flex flex-col items-center justify-center gap-2 text-white text-xs font-semibold">
+                        <Loader2 className="w-7 h-7 text-[#f85508] animate-spin" />
+                        <span>Buffering video...</span>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
 
@@ -291,6 +384,24 @@ export const VideoShowcaseSection: React.FC<VideoShowcaseSectionProps> = ({
               <div className="flex items-center justify-between gap-3 pt-3 px-1 text-[11px] text-slate-500 font-medium">
                 <span className="truncate font-semibold text-[#00106b]">{activeVideo.title}</span>
                 <span className="shrink-0">www.simply-biz.com</span>
+              </div>
+            </div>
+
+            {/* Right-Side Small Video Thumbnails Rail */}
+            <div className="w-full sm:w-44 lg:w-48 shrink-0 space-y-2.5">
+              <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5 px-1">
+                <Film className="w-3.5 h-3.5 text-[#f85508]" />
+                <span>Videos ({activeVideos.length})</span>
+              </div>
+              <div className="flex flex-row sm:flex-col gap-3 overflow-x-auto sm:overflow-y-auto sm:max-h-[540px] pb-2 sm:pb-0 sm:pr-1">
+                {activeVideos.map((vid) => (
+                  <VideoThumbnailCard
+                    key={vid.id}
+                    video={vid}
+                    isSelected={vid.id === activeVideo.id}
+                    onSelect={() => handleSelectThumbnail(vid.id)}
+                  />
+                ))}
               </div>
             </div>
           </div>

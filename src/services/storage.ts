@@ -20,6 +20,9 @@ import {
   saveVideoToFirestore,
   deleteVideoFromFirestore,
   subscribeToFirestoreVideos,
+  fetchFirestoreVideos,
+  hasSeededVideosInFirestore,
+  markVideosSeededInFirestore,
   saveVideoSectionToFirestore,
   subscribeToFirestoreVideoSection
 } from './firebase';
@@ -487,7 +490,7 @@ export function getCMSData(): CMSData {
     data.servicesContent = { ...DEFAULT_SERVICES_PAGE_CONTENT, ...(data.servicesContent || {}) };
     data.videoSectionContent = { ...DEFAULT_VIDEO_SECTION_CONTENT, ...(data.videoSectionContent || {}) };
 
-    if (!data.videos || data.videos.length === 0) {
+    if (!Array.isArray(data.videos)) {
       data.videos = DEFAULT_VIDEOS;
     }
 
@@ -722,25 +725,51 @@ export async function deleteVideoFromCloud(videoId: string): Promise<void> {
   await deleteVideoFromFirestore(videoId);
 }
 
+export async function syncVideosFromFirestore(): Promise<VideoItem[]> {
+  const firestoreVideos = await fetchFirestoreVideos();
+  const cms = getCMSData();
+  saveCMSData({ ...cms, videos: firestoreVideos });
+  return firestoreVideos;
+}
+
 export function subscribeToVideos(callback: (videos: VideoItem[]) => void): () => void {
+  let seedingInProgress = false;
   return subscribeToFirestoreVideos(
-    (firestoreVideos) => {
+    async (firestoreVideos) => {
       if (firestoreVideos.length > 0) {
+        markVideosSeededInFirestore().catch(() => {});
         const cms = getCMSData();
         const localOnlyIdb = (cms.videos || []).filter((v) => v.videoUrl.startsWith('idb://'));
         const merged = [...localOnlyIdb, ...firestoreVideos];
         saveCMSData({ ...cms, videos: merged });
         callback(merged);
       } else {
-        // Seed default built-in video to Firestore on initial load
-        DEFAULT_VIDEOS.forEach((vid) => {
-          saveVideoToFirestore(vid).catch(console.warn);
-        });
-        callback(getCMSData().videos || DEFAULT_VIDEOS);
+        const alreadySeeded = await hasSeededVideosInFirestore();
+        if (!alreadySeeded && !seedingInProgress) {
+          seedingInProgress = true;
+          try {
+            await markVideosSeededInFirestore();
+            await Promise.all(DEFAULT_VIDEOS.map((vid) => saveVideoToFirestore(vid)));
+          } catch (err) {
+            console.warn('Initial video seed notice:', err);
+          } finally {
+            seedingInProgress = false;
+          }
+          const cms = getCMSData();
+          saveCMSData({ ...cms, videos: DEFAULT_VIDEOS });
+          callback(DEFAULT_VIDEOS);
+        } else {
+          // Admin intentionally deleted all videos — keep empty list across all browsers
+          const cms = getCMSData();
+          const localOnlyIdb = (cms.videos || []).filter((v) => v.videoUrl.startsWith('idb://'));
+          saveCMSData({ ...cms, videos: localOnlyIdb });
+          callback(localOnlyIdb);
+        }
       }
     },
     () => {
-      callback(getCMSData().videos || DEFAULT_VIDEOS);
+      const cms = getCMSData();
+      callback(Array.isArray(cms.videos) ? cms.videos : DEFAULT_VIDEOS);
     }
   );
 }

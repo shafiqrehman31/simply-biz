@@ -76,6 +76,12 @@ service cloud.firestore {
         && data.subheadline is string && data.subheadline.size() <= 2000;
     }
 
+    function isValidVideoDefaults(data) {
+      return data.keys().hasAll(['seeded'])
+        && data.keys().hasOnly(['seeded'])
+        && data.seeded is bool;
+    }
+
     // Leads Collection: Public inquiries & Admin management
     match /leads/{leadId} {
       allow read: if true;
@@ -103,10 +109,13 @@ service cloud.firestore {
       allow delete: if isValidId(videoId);
     }
 
-    // Site Config Collection: Shared video section copy
+    // Site Config Collection: Shared video section copy and catalog seed state
     match /siteConfig/{configId} {
       allow read: if true;
-      allow create, update: if isValidId(configId) && configId == 'videoSection' && isValidVideoSectionContent(incoming());
+      allow create, update: if isValidId(configId) && (
+        (configId == 'videoSection' && isValidVideoSectionContent(incoming())) ||
+        (configId == 'videoDefaults' && isValidVideoDefaults(incoming()))
+      );
       allow delete: if false;
     }
   }

@@ -948,7 +948,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
         {[
           { id: 'leads', label: `Inquiries & Leads (${leads.length})`, icon: Users },
           { id: 'emails', label: `Dispatched Emails (${emailLogs.length})`, icon: Mail },
-          { id: 'videos', label: `Video Uploads (${(cmsData.videos || []).length || 1})`, icon: Video },
+          { id: 'videos', label: `Video Uploads (${(cmsData.videos || []).length})`, icon: Video },
           { id: 'pipedrive', label: 'Pipedrive CRM Settings', icon: Database },
           { id: 'branding', label: 'Logos & Branding', icon: Image },
           { id: 'cms', label: 'Content Management (CMS)', icon: Sliders },

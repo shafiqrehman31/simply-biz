@@ -119,6 +119,20 @@ async function startServer() {
   const app = express();
   const port = Number(process.env.PORT) || 3000;
 
+  // Enable cross-origin playback and upload access across preview/shared origins and browsers
+  app.use('/api', (req, res, next) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-File-Name, Range');
+    res.setHeader('Access-Control-Expose-Headers', 'Content-Range, Accept-Ranges, Content-Length');
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    if (req.method === 'OPTIONS') {
+      res.status(204).end();
+      return;
+    }
+    next();
+  });
+
   // Health check
   app.get('/api/health', (_req, res) => {
     res.json({ ok: true });

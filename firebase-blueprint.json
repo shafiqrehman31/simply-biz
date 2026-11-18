@@ -232,6 +232,18 @@
         }
       },
       "required": ["badgeText", "headline", "subheadline"]
+    },
+    "VideoDefaults": {
+      "title": "VideoDefaults",
+      "description": "Tracks whether default sample videos were initially seeded so admin deletions persist",
+      "type": "object",
+      "properties": {
+        "seeded": {
+          "type": "boolean",
+          "description": "Whether initial sample videos have already been seeded"
+        }
+      },
+      "required": ["seeded"]
     }
   },
   "firestore": {
@@ -249,7 +261,7 @@
     },
     "/siteConfig/{configId}": {
       "schema": "VideoSectionContent",
-      "description": "Shared site configuration documents such as videoSection copy"
+      "description": "Shared site configuration documents such as videoSection copy and videoDefaults state"
     }
   }
 }

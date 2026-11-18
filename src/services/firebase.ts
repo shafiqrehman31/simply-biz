@@ -4,6 +4,7 @@ import {
   getFirestore, 
   doc, 
   collection, 
+  getDoc,
   getDocs, 
   setDoc, 
   updateDoc, 
@@ -216,20 +217,50 @@ function sanitizeVideoForFirestore(video: VideoItem): Record<string, unknown> {
   return docData;
 }
 
+export async function hasSeededVideosInFirestore(): Promise<boolean> {
+  try {
+    const snap = await getDoc(doc(db, 'siteConfig', 'videoDefaults'));
+    return snap.exists() && Boolean(snap.data()?.seeded);
+  } catch (err) {
+    console.warn('hasSeededVideosInFirestore check warning:', err);
+    return false;
+  }
+}
+
+export async function markVideosSeededInFirestore(): Promise<void> {
+  try {
+    await setDoc(doc(db, 'siteConfig', 'videoDefaults'), { seeded: true });
+  } catch (err) {
+    console.warn('markVideosSeededInFirestore warning:', err);
+  }
+}
+
+/**
+ * Fetch all Videos from Firestore
+ */
+export async function fetchFirestoreVideos(): Promise<VideoItem[]> {
+  const colRef = collection(db, 'videos');
+  const snapshot = await getDocs(colRef);
+  const firestoreVideos: VideoItem[] = [];
+  snapshot.forEach((docSnap) => {
+    firestoreVideos.push(docSnap.data() as VideoItem);
+  });
+  firestoreVideos.sort((a, b) => {
+    if (a.isFeatured !== b.isFeatured) return a.isFeatured ? -1 : 1;
+    return (a.order || 0) - (b.order || 0);
+  });
+  return firestoreVideos;
+}
+
 /**
  * Save or update a VideoItem in Firestore
  */
 export async function saveVideoToFirestore(video: VideoItem): Promise<void> {
+  const payload = sanitizeVideoForFirestore(video);
   try {
-    const payload = sanitizeVideoForFirestore(video);
     await setDoc(doc(db, 'videos', video.id), payload);
   } catch (err) {
-    console.warn('Firestore saveVideo warning:', err);
-    try {
-      handleFirestoreError(err, OperationType.WRITE, `videos/${video.id}`);
-    } catch {
-      // Logged structured FirestoreErrorInfo for diagnostics without crashing UI
-    }
+    handleFirestoreError(err, OperationType.WRITE, `videos/${video.id}`);
   }
 }
 
@@ -238,9 +269,10 @@ export async function saveVideoToFirestore(video: VideoItem): Promise<void> {
  */
 export async function deleteVideoFromFirestore(videoId: string): Promise<void> {
   try {
+    await markVideosSeededInFirestore();
     await deleteDoc(doc(db, 'videos', videoId));
   } catch (err) {
-    console.warn('Firestore deleteVideo warning:', err);
+    handleFirestoreError(err, OperationType.DELETE, `videos/${videoId}`);
   }
 }
 
