@@ -101,8 +101,8 @@
         },
         "recipient": {
           "type": "string",
-          "description": "Email recipient",
-          "maxLength": 200
+          "description": "Email recipient(s)",
+          "maxLength": 300
         },
         "sender": {
           "type": "string",
@@ -133,8 +133,13 @@
         "status": {
           "type": "string",
           "description": "Delivery status",
-          "enum": ["Delivered", "Sent"],
+          "enum": ["Delivered", "Sent", "Pending Activation", "Failed"],
           "maxLength": 50
+        },
+        "deliveryNote": {
+          "type": "string",
+          "description": "Provider delivery response or activation note",
+          "maxLength": 500
         }
       },
       "required": ["id", "leadId", "recipient", "sender", "subject", "htmlBody", "type", "sentAt", "status"]
@@ -244,6 +249,74 @@
         }
       },
       "required": ["seeded"]
+    },
+    "EmailSettings": {
+      "title": "EmailSettings",
+      "description": "Cross-browser quote email notification settings configured in Admin",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Whether incoming quotes automatically send email notifications"
+        },
+        "notificationEmails": {
+          "type": "string",
+          "description": "Comma-separated admin recipient email addresses",
+          "maxLength": 500
+        },
+        "fromName": {
+          "type": "string",
+          "description": "Sender display name for quote emails",
+          "maxLength": 120
+        },
+        "subjectPrefix": {
+          "type": "string",
+          "description": "Email subject prefix",
+          "maxLength": 100
+        },
+        "deliveryProvider": {
+          "type": "string",
+          "description": "Browser-compatible email delivery provider",
+          "enum": ["formsubmit", "web3forms", "emailjs", "webhook"],
+          "maxLength": 30
+        },
+        "web3formsAccessKey": {
+          "type": "string",
+          "description": "Public Web3Forms access key",
+          "maxLength": 200
+        },
+        "emailjsServiceId": {
+          "type": "string",
+          "description": "EmailJS service identifier",
+          "maxLength": 150
+        },
+        "emailjsTemplateId": {
+          "type": "string",
+          "description": "EmailJS admin notification template identifier",
+          "maxLength": 150
+        },
+        "emailjsCustomerTemplateId": {
+          "type": "string",
+          "description": "Optional EmailJS customer confirmation template identifier",
+          "maxLength": 150
+        },
+        "emailjsPublicKey": {
+          "type": "string",
+          "description": "EmailJS public API key",
+          "maxLength": 150
+        },
+        "webhookUrl": {
+          "type": "string",
+          "description": "Custom quote notification webhook URL",
+          "maxLength": 500
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "ISO timestamp of last settings update",
+          "maxLength": 100
+        }
+      },
+      "required": ["enabled", "notificationEmails", "fromName", "subjectPrefix", "deliveryProvider"]
     }
   },
   "firestore": {
@@ -261,7 +334,7 @@
     },
     "/siteConfig/{configId}": {
       "schema": "VideoSectionContent",
-      "description": "Shared site configuration documents such as videoSection copy and videoDefaults state"
+      "description": "Shared site configuration documents including videoSection, videoDefaults, and emailSettings"
     }
   }
 }

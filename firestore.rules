@@ -39,15 +39,18 @@ service cloud.firestore {
     }
 
     function isValidEmailLog(data) {
-      return data.id is string && data.id.size() <= 128
-        && data.leadId is string && data.leadId.size() <= 128
-        && data.recipient is string && data.recipient.size() <= 200
+      return data.keys().hasAll(['id', 'leadId', 'recipient', 'sender', 'subject', 'htmlBody', 'type', 'sentAt', 'status'])
+        && data.keys().hasOnly(['id', 'leadId', 'recipient', 'sender', 'subject', 'htmlBody', 'type', 'sentAt', 'status', 'deliveryNote'])
+        && data.id is string && data.id.size() > 0 && data.id.size() <= 128
+        && data.leadId is string && data.leadId.size() > 0 && data.leadId.size() <= 128
+        && data.recipient is string && data.recipient.size() <= 300
         && data.sender is string && data.sender.size() <= 200
         && data.subject is string && data.subject.size() <= 300
         && data.htmlBody is string && data.htmlBody.size() <= 100000
         && data.type is string && (data.type == 'customer_confirmation' || data.type == 'admin_notification')
         && data.sentAt is string && data.sentAt.size() <= 100
-        && data.status is string && (data.status == 'Delivered' || data.status == 'Sent');
+        && data.status is string && (data.status == 'Delivered' || data.status == 'Sent' || data.status == 'Pending Activation' || data.status == 'Failed')
+        && (!('deliveryNote' in data) || data.deliveryNote == null || (data.deliveryNote is string && data.deliveryNote.size() <= 500));
     }
 
     function isValidVideoItem(data) {
@@ -82,6 +85,23 @@ service cloud.firestore {
         && data.seeded is bool;
     }
 
+    function isValidEmailSettings(data) {
+      return data.keys().hasAll(['enabled', 'notificationEmails', 'fromName', 'subjectPrefix', 'deliveryProvider'])
+        && data.keys().hasOnly(['enabled', 'notificationEmails', 'fromName', 'subjectPrefix', 'deliveryProvider', 'web3formsAccessKey', 'emailjsServiceId', 'emailjsTemplateId', 'emailjsCustomerTemplateId', 'emailjsPublicKey', 'webhookUrl', 'updatedAt'])
+        && data.enabled is bool
+        && data.notificationEmails is string && data.notificationEmails.size() <= 500
+        && data.fromName is string && data.fromName.size() <= 120
+        && data.subjectPrefix is string && data.subjectPrefix.size() <= 100
+        && data.deliveryProvider is string && (data.deliveryProvider == 'formsubmit' || data.deliveryProvider == 'web3forms' || data.deliveryProvider == 'emailjs' || data.deliveryProvider == 'webhook')
+        && (!('web3formsAccessKey' in data) || (data.web3formsAccessKey is string && data.web3formsAccessKey.size() <= 200))
+        && (!('emailjsServiceId' in data) || (data.emailjsServiceId is string && data.emailjsServiceId.size() <= 150))
+        && (!('emailjsTemplateId' in data) || (data.emailjsTemplateId is string && data.emailjsTemplateId.size() <= 150))
+        && (!('emailjsCustomerTemplateId' in data) || (data.emailjsCustomerTemplateId is string && data.emailjsCustomerTemplateId.size() <= 150))
+        && (!('emailjsPublicKey' in data) || (data.emailjsPublicKey is string && data.emailjsPublicKey.size() <= 150))
+        && (!('webhookUrl' in data) || (data.webhookUrl is string && data.webhookUrl.size() <= 500))
+        && (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() <= 100));
+    }
+
     // Leads Collection: Public inquiries & Admin management
     match /leads/{leadId} {
       allow read: if true;
@@ -109,12 +129,13 @@ service cloud.firestore {
       allow delete: if isValidId(videoId);
     }
 
-    // Site Config Collection: Shared video section copy and catalog seed state
+    // Site Config Collection: Shared video section copy, seed state, and email notification settings
     match /siteConfig/{configId} {
       allow read: if true;
       allow create, update: if isValidId(configId) && (
         (configId == 'videoSection' && isValidVideoSectionContent(incoming())) ||
-        (configId == 'videoDefaults' && isValidVideoDefaults(incoming()))
+        (configId == 'videoDefaults' && isValidVideoDefaults(incoming())) ||
+        (configId == 'emailSettings' && isValidEmailSettings(incoming()))
       );
       allow delete: if false;
     }

@@ -5,7 +5,13 @@
 
 import React, { useState, useEffect } from 'react';
 import { PageRoute, CMSData } from './types';
-import { getCMSData, saveCMSData, subscribeToVideos, subscribeToVideoSection } from './services/storage';
+import {
+  getCMSData,
+  saveCMSData,
+  subscribeToVideos,
+  subscribeToVideoSection,
+  subscribeToEmailSettings,
+} from './services/storage';
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
 import { FloatingActions } from './components/FloatingActions';
@@ -53,7 +59,7 @@ export default function App() {
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
-  // Sync videos and video section headings in real time across all browsers via Firestore
+  // Sync videos, video section headings, and email settings in real time across all browsers via Firestore
   useEffect(() => {
     const unsubVideos = subscribeToVideos((syncedVideos) => {
       setCmsData((prev) => ({
@@ -69,9 +75,17 @@ export default function App() {
       }));
     });
 
+    const unsubEmailSettings = subscribeToEmailSettings((syncedEmailSettings) => {
+      setCmsData((prev) => ({
+        ...prev,
+        emailSettings: syncedEmailSettings,
+      }));
+    });
+
     return () => {
       unsubVideos();
       unsubSection();
+      unsubEmailSettings();
     };
   }, []);
 

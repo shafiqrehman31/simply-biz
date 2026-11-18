@@ -13,7 +13,9 @@ import {
   EmailLog,
   AboutPageContent,
   WhyUsPageContent,
-  ServicesPageContent
+  ServicesPageContent,
+  EmailSettings,
+  EmailDeliveryProvider
 } from '../types';
 import { 
   getLeads, 
@@ -25,9 +27,11 @@ import {
   DEFAULT_ABOUT_CONTENT,
   DEFAULT_WHY_US_CONTENT,
   DEFAULT_SERVICES_PAGE_CONTENT,
+  DEFAULT_EMAIL_SETTINGS,
   subscribeToLeads,
   syncLeadsFromFirestore,
-  updateLeadStatusInFirestore
+  updateLeadStatusInFirestore,
+  saveEmailSettingsToCloud
 } from '../services/storage';
 import { getEmailLogs, getEmailLogsForLead, subscribeToEmailLogs, sendTestEmail } from '../services/emailService';
 import { AdminVideoManager } from '../components/AdminVideoManager';
@@ -332,13 +336,29 @@ export const AdminPage: React.FC<AdminPageProps> = ({
   const [whyUsDraft, setWhyUsDraft] = useState<WhyUsPageContent>(cmsData.whyUsContent || DEFAULT_WHY_US_CONTENT);
   const [servicesPageDraft, setServicesPageDraft] = useState<ServicesPageContent>(cmsData.servicesContent || DEFAULT_SERVICES_PAGE_CONTENT);
 
-  // Email Test Console state
-  const [testEmailRecipient, setTestEmailRecipient] = useState(cmsData.branding.siteEmail || 'info@simply-biz.com');
+  // Email Notification Settings & Test Console state
+  const [emailSettingsDraft, setEmailSettingsDraft] = useState<EmailSettings>(
+    cmsData.emailSettings || DEFAULT_EMAIL_SETTINGS
+  );
+  const [isSavingEmailSettings, setIsSavingEmailSettings] = useState(false);
+  const [emailSettingsError, setEmailSettingsError] = useState<string | null>(null);
+  const [testEmailRecipient, setTestEmailRecipient] = useState(
+    cmsData.emailSettings?.notificationEmails || cmsData.branding.siteEmail || 'info@simply-biz.com'
+  );
   const [testEmailTemplate, setTestEmailTemplate] = useState<'both' | 'customer_confirmation' | 'admin_notification'>('both');
   const [testProspectName, setTestProspectName] = useState('Alexander Vance');
   const [testJurisdiction, setTestJurisdiction] = useState('Mainland');
   const [isTestingEmail, setIsTestingEmail] = useState(false);
   const [emailTestFeedback, setEmailTestFeedback] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (cmsData.emailSettings) {
+      setEmailSettingsDraft(cmsData.emailSettings);
+      if (cmsData.emailSettings.notificationEmails) {
+        setTestEmailRecipient(cmsData.emailSettings.notificationEmails);
+      }
+    }
+  }, [cmsData.emailSettings]);
 
   // Users tab
   const [usersList, setUsersList] = useState<AdminUser[]>(cmsData.adminUsers);
@@ -546,34 +566,94 @@ export const AdminPage: React.FC<AdminPageProps> = ({
     triggerSaveSuccess('Testimonial removed.');
   };
 
-  // --- EMAIL DELIVERY TEST RUNNER ---
-  const handleRunEmailDeliveryTest = () => {
-    if (!testEmailRecipient.trim()) {
-      alert('Please enter a target email address for test delivery.');
+  // --- EMAIL SETTINGS SAVE & REAL DELIVERY TEST RUNNER ---
+  const handleSaveEmailSettings = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setEmailSettingsError(null);
+
+    if (emailSettingsDraft.enabled && !emailSettingsDraft.notificationEmails.trim()) {
+      setEmailSettingsError('Please enter at least one recipient email address (e.g. shafiq.rehman31@gmail.com).');
+      return;
+    }
+
+    setIsSavingEmailSettings(true);
+    try {
+      const normalized: EmailSettings = {
+        ...emailSettingsDraft,
+        notificationEmails: emailSettingsDraft.notificationEmails.trim(),
+        fromName: emailSettingsDraft.fromName.trim() || 'Simply Biz Quote Desk',
+        subjectPrefix: emailSettingsDraft.subjectPrefix.trim() || '[Simply Biz Quote]',
+        updatedAt: new Date().toISOString(),
+      };
+      await saveEmailSettingsToCloud(normalized);
+      const updatedCMS: CMSData = {
+        ...cmsData,
+        emailSettings: normalized,
+      };
+      onUpdateCMS(updatedCMS);
+      saveCMSData(updatedCMS);
+      if (normalized.notificationEmails) {
+        setTestEmailRecipient(normalized.notificationEmails);
+      }
+      triggerSaveSuccess(
+        normalized.enabled
+          ? `Quote email forwarding saved for ${normalized.notificationEmails} across all browsers.`
+          : 'Quote email forwarding settings saved.'
+      );
+    } catch (err) {
+      setEmailSettingsError(
+        err instanceof Error ? err.message : 'Unable to save Email Settings to Cloud Database.'
+      );
+    } finally {
+      setIsSavingEmailSettings(false);
+    }
+  };
+
+  const handleRunEmailDeliveryTest = async () => {
+    const target = testEmailRecipient.trim() || emailSettingsDraft.notificationEmails.trim();
+    if (!target) {
+      alert('Please enter a target email address (e.g. shafiq.rehman31@gmail.com) for test delivery.');
       return;
     }
     setIsTestingEmail(true);
     setEmailTestFeedback(null);
 
-    setTimeout(() => {
-      const dispatched = sendTestEmail(
-        testEmailRecipient.trim(),
+    try {
+      const { logs: dispatched, realResult } = await sendTestEmail(
+        target,
         cmsData.branding,
         testEmailTemplate,
         {
           name: testProspectName.trim() || 'Dr. Alexander Vance (Test Prospect)',
           jurisdiction: (testJurisdiction as any) || 'Mainland',
-        }
+        },
+        emailSettingsDraft
       );
 
       setEmailLogs(getEmailLogs());
-      setIsTestingEmail(false);
-      setEmailTestFeedback(`✅ Test email successfully dispatched & marked as Delivered!\n• Destination Email: ${testEmailRecipient}\n• Template Tested: ${testEmailTemplate === 'both' ? 'Both Customer Confirmation & Receiver Alert' : testEmailTemplate}\n• Log Record: Synchronized to Firestore & Email Audit Trail\n• Status: Delivered (Verified Preview Available Below)\n• Zero Customer Impact: Safely isolated in test mode.`);
-      triggerSaveSuccess('Email delivery test completed successfully.');
+      const statusHeadline =
+        realResult.status === 'Delivered'
+          ? '✅ Real Quote Test Email Delivered!'
+          : realResult.status === 'Pending Activation'
+          ? '⚠️ One-Time Inbox Activation Email Sent!'
+          : '❌ Email Gateway Reported an Issue';
+
+      setEmailTestFeedback(
+        `${statusHeadline}\n• Destination Email(s): ${target}\n• Gateway Status: ${realResult.status}\n• Gateway Details: ${realResult.note}\n• Audit Record: Saved to Cloud Database & Dispatched Log below.`
+      );
+      if (realResult.ok) {
+        triggerSaveSuccess(`Test quote email sent to ${target}.`);
+      }
       if (dispatched.length > 0) {
         setSelectedEmailPreview(dispatched[0]);
       }
-    }, 700);
+    } catch (err) {
+      setEmailTestFeedback(
+        `❌ Failed to run email test: ${err instanceof Error ? err.message : 'Unknown error'}`
+      );
+    } finally {
+      setIsTestingEmail(false);
+    }
   };
 
   // --- LEADS MANAGEMENT ---
@@ -947,7 +1027,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
       <div className="flex flex-wrap items-center gap-2">
         {[
           { id: 'leads', label: `Inquiries & Leads (${leads.length})`, icon: Users },
-          { id: 'emails', label: `Dispatched Emails (${emailLogs.length})`, icon: Mail },
+          { id: 'emails', label: `Email Settings (${emailLogs.length})`, icon: Mail },
           { id: 'videos', label: `Video Uploads (${(cmsData.videos || []).length})`, icon: Video },
           { id: 'pipedrive', label: 'Pipedrive CRM Settings', icon: Database },
           { id: 'branding', label: 'Logos & Branding', icon: Image },
@@ -1206,10 +1286,14 @@ export const AdminPage: React.FC<AdminPageProps> = ({
         </div>
       )}
 
-      {/* ================= TAB 2: DISPATCHED EMAIL LOGS ================= */}
+      {/* ================= TAB 2: EMAIL SETTINGS & DISPATCHED LOGS ================= */}
       {activeTab === 'emails' && (
         <div className="space-y-6">
-          <div className="neo-box rounded-3xl p-6 sm:p-8 space-y-6 border border-white">
+          {/* QUOTE EMAIL FORWARDING SETTINGS CARD */}
+          <form
+            onSubmit={handleSaveEmailSettings}
+            className="neo-box rounded-3xl p-6 sm:p-8 space-y-6 border border-white"
+          >
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-2xl neo-inset flex items-center justify-center text-[#f85508]">
@@ -1217,10 +1301,258 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                 </div>
                 <div>
                   <h3 className="text-xl font-bold text-[#00106b]">
-                    Dispatched Email Notifications Log
+                    Quote Email Notification Settings
                   </h3>
                   <p className="text-xs text-slate-500">
-                    Audit trail of all Customer Confirmations and Receiver Lead Alerts (info@simply-biz.com).
+                    Automatically send every new website or WhatsApp Quote to your chosen email inbox(es) (synced across all browsers).
+                  </p>
+                </div>
+              </div>
+
+              <label className="flex items-center gap-2.5 px-3.5 py-2 rounded-xl neo-inset bg-white/70 text-xs font-bold text-[#00106b] cursor-pointer select-none shrink-0">
+                <input
+                  type="checkbox"
+                  checked={emailSettingsDraft.enabled}
+                  onChange={(e) =>
+                    setEmailSettingsDraft({ ...emailSettingsDraft, enabled: e.target.checked })
+                  }
+                  className="w-4 h-4 rounded accent-[#f85508]"
+                />
+                <span>Send Latest Quotes to Email</span>
+              </label>
+            </div>
+
+            {emailSettingsError && (
+              <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-xs font-semibold text-red-700">
+                {emailSettingsError}
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div className="md:col-span-2">
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  Quote Recipient Email Address(es) *
+                </label>
+                <input
+                  type="text"
+                  value={emailSettingsDraft.notificationEmails}
+                  onChange={(e) =>
+                    setEmailSettingsDraft({
+                      ...emailSettingsDraft,
+                      notificationEmails: e.target.value,
+                    })
+                  }
+                  placeholder="shafiq.rehman31@gmail.com or info@simply-biz.com, shafiq.rehman31@gmail.com"
+                  className="w-full neo-inset rounded-xl px-4 py-2.5 text-xs sm:text-sm text-slate-800"
+                />
+                <p className="text-[11px] text-slate-500 mt-1">
+                  Enter one email (e.g. <strong>shafiq.rehman31@gmail.com</strong>) or multiple comma-separated emails to receive the latest Quote whenever a client submits a request.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  Email Delivery Method
+                </label>
+                <select
+                  value={emailSettingsDraft.deliveryProvider}
+                  onChange={(e) =>
+                    setEmailSettingsDraft({
+                      ...emailSettingsDraft,
+                      deliveryProvider: e.target.value as EmailDeliveryProvider,
+                    })
+                  }
+                  className="w-full neo-inset rounded-xl px-3.5 py-2.5 text-xs text-slate-800"
+                >
+                  <option value="formsubmit">Direct Email via FormSubmit (No API Key Needed)</option>
+                  <option value="web3forms">Web3Forms API (Recommended Free Access Key)</option>
+                  <option value="emailjs">EmailJS (Send via Connected Gmail / SMTP)</option>
+                  <option value="webhook">Custom Webhook URL (Zapier / Make / Google Apps Script)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  Sender Display Name
+                </label>
+                <input
+                  type="text"
+                  value={emailSettingsDraft.fromName}
+                  onChange={(e) =>
+                    setEmailSettingsDraft({ ...emailSettingsDraft, fromName: e.target.value })
+                  }
+                  placeholder="Simply Biz Quote Desk"
+                  className="w-full neo-inset rounded-xl px-3.5 py-2.5 text-xs text-slate-800"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  Email Subject Prefix
+                </label>
+                <input
+                  type="text"
+                  value={emailSettingsDraft.subjectPrefix}
+                  onChange={(e) =>
+                    setEmailSettingsDraft({ ...emailSettingsDraft, subjectPrefix: e.target.value })
+                  }
+                  placeholder="[Simply Biz Quote]"
+                  className="w-full neo-inset rounded-xl px-3.5 py-2.5 text-xs text-slate-800"
+                />
+              </div>
+
+              {emailSettingsDraft.deliveryProvider === 'web3forms' && (
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Web3Forms Public Access Key *
+                  </label>
+                  <input
+                    type="text"
+                    value={emailSettingsDraft.web3formsAccessKey}
+                    onChange={(e) =>
+                      setEmailSettingsDraft({
+                        ...emailSettingsDraft,
+                        web3formsAccessKey: e.target.value,
+                      })
+                    }
+                    placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                    className="w-full neo-inset rounded-xl px-3.5 py-2.5 text-xs font-mono text-slate-800"
+                  />
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    Create a free access key for your recipient email at web3forms.com.
+                  </p>
+                </div>
+              )}
+
+              {emailSettingsDraft.deliveryProvider === 'webhook' && (
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Webhook Endpoint URL *
+                  </label>
+                  <input
+                    type="url"
+                    value={emailSettingsDraft.webhookUrl}
+                    onChange={(e) =>
+                      setEmailSettingsDraft({
+                        ...emailSettingsDraft,
+                        webhookUrl: e.target.value,
+                      })
+                    }
+                    placeholder="https://hook.eu1.make.com/..."
+                    className="w-full neo-inset rounded-xl px-3.5 py-2.5 text-xs font-mono text-slate-800"
+                  />
+                </div>
+              )}
+            </div>
+
+            {emailSettingsDraft.deliveryProvider === 'emailjs' && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-4 rounded-2xl neo-inset bg-white/60">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    EmailJS Service ID *
+                  </label>
+                  <input
+                    type="text"
+                    value={emailSettingsDraft.emailjsServiceId}
+                    onChange={(e) =>
+                      setEmailSettingsDraft({
+                        ...emailSettingsDraft,
+                        emailjsServiceId: e.target.value,
+                      })
+                    }
+                    placeholder="service_xxxxxxx"
+                    className="w-full neo-inset rounded-xl px-3 py-2 text-xs font-mono text-slate-800"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Admin Quote Template ID *
+                  </label>
+                  <input
+                    type="text"
+                    value={emailSettingsDraft.emailjsTemplateId}
+                    onChange={(e) =>
+                      setEmailSettingsDraft({
+                        ...emailSettingsDraft,
+                        emailjsTemplateId: e.target.value,
+                      })
+                    }
+                    placeholder="template_xxxxxxx"
+                    className="w-full neo-inset rounded-xl px-3 py-2 text-xs font-mono text-slate-800"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    EmailJS Public Key *
+                  </label>
+                  <input
+                    type="text"
+                    value={emailSettingsDraft.emailjsPublicKey}
+                    onChange={(e) =>
+                      setEmailSettingsDraft({
+                        ...emailSettingsDraft,
+                        emailjsPublicKey: e.target.value,
+                      })
+                    }
+                    placeholder="public_key_xxxx"
+                    className="w-full neo-inset rounded-xl px-3 py-2 text-xs font-mono text-slate-800"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Customer Template ID (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={emailSettingsDraft.emailjsCustomerTemplateId || ''}
+                    onChange={(e) =>
+                      setEmailSettingsDraft({
+                        ...emailSettingsDraft,
+                        emailjsCustomerTemplateId: e.target.value,
+                      })
+                    }
+                    placeholder="template_cust_xxx"
+                    className="w-full neo-inset rounded-xl px-3 py-2 text-xs font-mono text-slate-800"
+                  />
+                </div>
+              </div>
+            )}
+
+            {emailSettingsDraft.deliveryProvider === 'formsubmit' && (
+              <div className="p-3.5 rounded-2xl neo-inset bg-blue-50/70 border border-blue-100 text-xs text-slate-700 leading-relaxed">
+                <strong className="text-[#00106b]">How Direct Email Works:</strong> Save your recipient email above (for example, <strong>shafiq.rehman31@gmail.com</strong>), then click <strong>Dispatch Test Delivery Now</strong> below. The very first time a new inbox is used, open that inbox (or spam folder) once and click the <strong>Activate Form</strong> link from FormSubmit — after that, every live Quote arrives in your inbox automatically.
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-200/70">
+              <div className="text-[11px] text-slate-500">
+                {emailSettingsDraft.updatedAt
+                  ? `Last synced across browsers: ${new Date(emailSettingsDraft.updatedAt).toLocaleString()}`
+                  : 'Changes sync immediately to Cloud Database for all website visitors.'}
+              </div>
+              <button
+                type="submit"
+                disabled={isSavingEmailSettings}
+                className="neo-btn-orange px-6 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                <Save className="w-3.5 h-3.5" />
+                <span>{isSavingEmailSettings ? 'Saving Settings...' : 'Save Email Settings'}</span>
+              </button>
+            </div>
+          </form>
+
+          <div className="neo-box rounded-3xl p-6 sm:p-8 space-y-6 border border-white">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl neo-inset flex items-center justify-center text-[#f85508]">
+                  <Send className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-[#00106b]">
+                    Dispatched Email Notifications &amp; Test Suite
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Active quote recipient(s): <strong>{emailSettingsDraft.notificationEmails || cmsData.branding.siteEmail || 'info@simply-biz.com'}</strong>
                   </p>
                 </div>
               </div>
@@ -1243,44 +1575,44 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                   <span className="w-3 h-3 rounded-full bg-[#f85508] animate-ping" />
                   <div>
                     <h4 className="text-sm font-bold text-[#00106b]">
-                      Email Delivery Verification & Test Suite
+                      Send Test Quote to Configured Inbox
                     </h4>
                     <p className="text-[11px] text-slate-500">
-                      Test that customer confirmation and admin alert emails are formatted and delivered without disturbing real customers.
+                      Dispatches a real sample Quote via your selected gateway above so you can verify inbox arrival and HTML formatting without disturbing customers.
                     </p>
                   </div>
                 </div>
                 <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full neo-inset bg-white text-[#f85508]">
-                  Safe Isolated Test Environment
+                  Live Gateway Verification
                 </span>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Test Recipient Email
+                    Test Recipient Email(s)
                   </label>
                   <input
-                    type="email"
+                    type="text"
                     value={testEmailRecipient}
                     onChange={(e) => setTestEmailRecipient(e.target.value)}
-                    placeholder="e.g. your-email@domain.com"
+                    placeholder="shafiq.rehman31@gmail.com"
                     className="w-full neo-inset rounded-xl px-3 py-2 text-xs text-slate-800"
                   />
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Email Template To Test
+                    Email Template To Preview
                   </label>
                   <select
                     value={testEmailTemplate}
                     onChange={(e) => setTestEmailTemplate(e.target.value as any)}
                     className="w-full neo-inset rounded-xl px-3 py-2 text-xs text-slate-800"
                   >
-                    <option value="both">Both (Customer Confirmation & Receiver Alert)</option>
+                    <option value="both">Both (Customer Confirmation &amp; Receiver Alert)</option>
+                    <option value="admin_notification">Admin Quote Alert Template</option>
                     <option value="customer_confirmation">Customer Quote Confirmation Template</option>
-                    <option value="admin_notification">Receiver Lead Alert Template</option>
                   </select>
                 </div>
 
@@ -1315,7 +1647,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
 
               <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
                 <div className="text-[11px] text-slate-500">
-                  ⚡ Verifies HTML formatting, reference numbering, phone links, and Cloud database persistence.
+                  ⚡ Tests live inbox forwarding using <strong>{emailSettingsDraft.deliveryProvider}</strong> and records the result in Cloud Database.
                 </div>
                 <button
                   type="button"
@@ -1324,17 +1656,17 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                   className="neo-btn-orange px-6 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer shadow-sm disabled:opacity-50"
                 >
                   <Send className={`w-3.5 h-3.5 ${isTestingEmail ? 'animate-bounce' : ''}`} />
-                  <span>{isTestingEmail ? 'Dispatching Test Delivery...' : 'Dispatch Test Delivery Now'}</span>
+                  <span>{isTestingEmail ? 'Sending Test Quote...' : 'Dispatch Test Delivery Now'}</span>
                 </button>
               </div>
 
               {/* Delivery Test Results Feedback */}
               {emailTestFeedback && (
-                <div className="p-4 rounded-xl neo-inset bg-emerald-50/90 border border-emerald-200 text-emerald-900 font-mono text-[11px] whitespace-pre-wrap leading-relaxed space-y-2">
+                <div className="p-4 rounded-xl neo-inset bg-emerald-50/90 border border-emerald-200 text-emerald-950 font-mono text-[11px] whitespace-pre-wrap leading-relaxed space-y-2">
                   <div>{emailTestFeedback}</div>
                   <div className="pt-1">
                     <span className="font-sans font-bold text-emerald-800">
-                      💡 Click "View HTML" on any test email below to inspect the rendered delivery output in real time.
+                      💡 Click &quot;View HTML&quot; on any logged email below to inspect the rendered quote layout.
                     </span>
                   </div>
                 </div>
@@ -1375,7 +1707,12 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                             </span>
                           </td>
                           <td className="py-3 px-4 font-medium text-slate-800">
-                            {log.recipient}
+                            <div>{log.recipient}</div>
+                            {log.deliveryNote && (
+                              <div className="text-[10px] text-slate-500 max-w-xs truncate" title={log.deliveryNote}>
+                                {log.deliveryNote}
+                              </div>
+                            )}
                           </td>
                           <td className="py-3 px-4 font-semibold text-[#00106b] max-w-xs truncate">
                             {log.subject}
@@ -1384,10 +1721,27 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                             {new Date(log.sentAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
                           </td>
                           <td className="py-3 px-4">
-                            <span className="inline-flex items-center gap-1 text-emerald-700 font-bold text-[11px]">
-                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                              <span>Delivered</span>
-                            </span>
+                            {log.status === 'Delivered' ? (
+                              <span className="inline-flex items-center gap-1 text-emerald-700 font-bold text-[11px]">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                <span>Delivered</span>
+                              </span>
+                            ) : log.status === 'Pending Activation' ? (
+                              <span className="inline-flex items-center gap-1 text-amber-700 font-bold text-[11px]">
+                                <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+                                <span>Pending Activation</span>
+                              </span>
+                            ) : log.status === 'Failed' ? (
+                              <span className="inline-flex items-center gap-1 text-red-700 font-bold text-[11px]">
+                                <AlertCircle className="w-3.5 h-3.5 text-red-600" />
+                                <span>Failed</span>
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-slate-600 font-bold text-[11px]">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-slate-500" />
+                                <span>{log.status}</span>
+                              </span>
+                            )}
                           </td>
                           <td className="py-3 px-4 text-right">
                             <button

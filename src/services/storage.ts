@@ -7,7 +7,8 @@ import {
   WhyUsPageContent, 
   ServicesPageContent,
   VideoItem,
-  VideoSectionContent
+  VideoSectionContent,
+  EmailSettings
 } from '../types';
 import { APP_IMAGES } from '../assets/images';
 import { sendQuoteEmails } from './emailService';
@@ -24,7 +25,10 @@ import {
   hasSeededVideosInFirestore,
   markVideosSeededInFirestore,
   saveVideoSectionToFirestore,
-  subscribeToFirestoreVideoSection
+  subscribeToFirestoreVideoSection,
+  saveEmailSettingsToFirestore,
+  fetchEmailSettingsFromFirestore,
+  subscribeToFirestoreEmailSettings
 } from './firebase';
 
 const STORAGE_KEYS = {
@@ -140,9 +144,24 @@ export const DEFAULT_VIDEOS: VideoItem[] = [
   },
 ];
 
+export const DEFAULT_EMAIL_SETTINGS: EmailSettings = {
+  enabled: true,
+  notificationEmails: 'info@simply-biz.com',
+  fromName: 'Simply Biz Quote Desk',
+  subjectPrefix: '[Simply Biz Quote]',
+  deliveryProvider: 'formsubmit',
+  web3formsAccessKey: '',
+  emailjsServiceId: '',
+  emailjsTemplateId: '',
+  emailjsCustomerTemplateId: '',
+  emailjsPublicKey: '',
+  webhookUrl: '',
+};
+
 export const DEFAULT_CMS_DATA: CMSData = {
   branding: DEFAULT_BRANDING,
   pipedrive: DEFAULT_PIPEDRIVE,
+  emailSettings: DEFAULT_EMAIL_SETTINGS,
   aboutContent: DEFAULT_ABOUT_CONTENT,
   whyUsContent: DEFAULT_WHY_US_CONTENT,
   servicesContent: DEFAULT_SERVICES_PAGE_CONTENT,
@@ -489,6 +508,7 @@ export function getCMSData(): CMSData {
     data.whyUsContent = { ...DEFAULT_WHY_US_CONTENT, ...(data.whyUsContent || {}) };
     data.servicesContent = { ...DEFAULT_SERVICES_PAGE_CONTENT, ...(data.servicesContent || {}) };
     data.videoSectionContent = { ...DEFAULT_VIDEO_SECTION_CONTENT, ...(data.videoSectionContent || {}) };
+    data.emailSettings = { ...DEFAULT_EMAIL_SETTINGS, ...(data.emailSettings || {}) };
 
     if (!Array.isArray(data.videos)) {
       data.videos = DEFAULT_VIDEOS;
@@ -566,10 +586,17 @@ export async function addLead(newLead: Omit<Lead, 'id' | 'createdAt' | 'status' 
     pipedriveStatus: 'pending',
   };
 
-  // 1. Dispatch official Customer Confirmation Email and Admin Notification Email
+  // 1. Load latest cross-browser Email Settings from Cloud Firestore and forward Quote emails
+  const cloudEmailSettings = await fetchEmailSettingsFromFirestore().catch(() => null);
+  const activeEmailSettings: EmailSettings = {
+    ...DEFAULT_EMAIL_SETTINGS,
+    ...(cms.emailSettings || {}),
+    ...(cloudEmailSettings || {}),
+  };
+
   let emailsSent: EmailLog[] = [];
   try {
-    emailsSent = sendQuoteEmails(lead, cms.branding);
+    emailsSent = await sendQuoteEmails(lead, cms.branding, activeEmailSettings);
   } catch (emailErr) {
     console.error('Failed to dispatch quote emails:', emailErr);
   }
@@ -783,5 +810,25 @@ export function subscribeToVideoSection(callback: (content: VideoSectionContent)
     const cms = getCMSData();
     saveCMSData({ ...cms, videoSectionContent: content });
     callback(content);
+  });
+}
+
+export async function saveEmailSettingsToCloud(settings: EmailSettings): Promise<void> {
+  await saveEmailSettingsToFirestore({
+    ...DEFAULT_EMAIL_SETTINGS,
+    ...settings,
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+export function subscribeToEmailSettings(callback: (settings: EmailSettings) => void): () => void {
+  return subscribeToFirestoreEmailSettings((cloudSettings) => {
+    const merged: EmailSettings = {
+      ...DEFAULT_EMAIL_SETTINGS,
+      ...cloudSettings,
+    };
+    const cms = getCMSData();
+    saveCMSData({ ...cms, emailSettings: merged });
+    callback(merged);
   });
 }

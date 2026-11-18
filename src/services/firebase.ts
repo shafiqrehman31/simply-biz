@@ -13,7 +13,7 @@ import {
   getDocFromServer 
 } from 'firebase/firestore';
 import firebaseConfig from './firebaseConfig';
-import type { Lead, EmailLog, VideoItem, VideoSectionContent } from '../types';
+import type { Lead, EmailLog, EmailSettings, VideoItem, VideoSectionContent } from '../types';
 
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
@@ -155,7 +155,21 @@ export async function fetchFirestoreLeads(): Promise<Lead[]> {
  */
 export async function saveEmailLogToFirestore(log: EmailLog): Promise<void> {
   try {
-    await setDoc(doc(db, 'emailLogs', log.id), log);
+    const payload: Record<string, unknown> = {
+      id: log.id.slice(0, 128),
+      leadId: log.leadId.slice(0, 128),
+      recipient: (log.recipient || '').slice(0, 300),
+      sender: (log.sender || '').slice(0, 200),
+      subject: (log.subject || '').slice(0, 300),
+      htmlBody: (log.htmlBody || '').slice(0, 100000),
+      type: log.type,
+      sentAt: (log.sentAt || new Date().toISOString()).slice(0, 100),
+      status: log.status,
+    };
+    if (log.deliveryNote) {
+      payload.deliveryNote = String(log.deliveryNote).slice(0, 500);
+    }
+    await setDoc(doc(db, 'emailLogs', log.id), payload);
   } catch (err) {
     console.warn('Firestore saveEmailLog warning:', err);
   }
@@ -347,6 +361,76 @@ export function subscribeToFirestoreVideoSection(
     );
   } catch (err) {
     console.warn('subscribeToFirestoreVideoSection error:', err);
+    return () => {};
+  }
+}
+
+function sanitizeEmailSettingsForFirestore(settings: EmailSettings): Record<string, unknown> {
+  return {
+    enabled: Boolean(settings.enabled),
+    notificationEmails: (settings.notificationEmails || '').slice(0, 500),
+    fromName: (settings.fromName || 'Simply Biz Quote Desk').slice(0, 120),
+    subjectPrefix: (settings.subjectPrefix || '[Simply Biz Quote]').slice(0, 100),
+    deliveryProvider: settings.deliveryProvider || 'formsubmit',
+    web3formsAccessKey: (settings.web3formsAccessKey || '').slice(0, 200),
+    emailjsServiceId: (settings.emailjsServiceId || '').slice(0, 150),
+    emailjsTemplateId: (settings.emailjsTemplateId || '').slice(0, 150),
+    emailjsCustomerTemplateId: (settings.emailjsCustomerTemplateId || '').slice(0, 150),
+    emailjsPublicKey: (settings.emailjsPublicKey || '').slice(0, 150),
+    webhookUrl: (settings.webhookUrl || '').slice(0, 500),
+    updatedAt: (settings.updatedAt || new Date().toISOString()).slice(0, 100),
+  };
+}
+
+/**
+ * Save shared EmailSettings to Firestore (siteConfig/emailSettings)
+ */
+export async function saveEmailSettingsToFirestore(settings: EmailSettings): Promise<void> {
+  const payload = sanitizeEmailSettingsForFirestore(settings);
+  try {
+    await setDoc(doc(db, 'siteConfig', 'emailSettings'), payload);
+  } catch (err) {
+    handleFirestoreError(err, OperationType.WRITE, 'siteConfig/emailSettings');
+  }
+}
+
+/**
+ * Fetch latest shared EmailSettings from Firestore
+ */
+export async function fetchEmailSettingsFromFirestore(): Promise<EmailSettings | null> {
+  try {
+    const snap = await getDoc(doc(db, 'siteConfig', 'emailSettings'));
+    if (snap.exists()) {
+      return snap.data() as EmailSettings;
+    }
+    return null;
+  } catch (err) {
+    console.warn('fetchEmailSettingsFromFirestore warning:', err);
+    return null;
+  }
+}
+
+/**
+ * Subscribe in real-time to siteConfig/emailSettings in Firestore
+ */
+export function subscribeToFirestoreEmailSettings(
+  onData: (settings: EmailSettings) => void
+): () => void {
+  try {
+    const docRef = doc(db, 'siteConfig', 'emailSettings');
+    return onSnapshot(
+      docRef,
+      (docSnap) => {
+        if (docSnap.exists()) {
+          onData(docSnap.data() as EmailSettings);
+        }
+      },
+      (error) => {
+        console.warn('Firestore emailSettings subscription warning:', error);
+      }
+    );
+  } catch (err) {
+    console.warn('subscribeToFirestoreEmailSettings error:', err);
     return () => {};
   }
 }

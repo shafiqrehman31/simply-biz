@@ -30,6 +30,23 @@ export interface Lead {
   notes?: string;
 }
 
+export type EmailDeliveryProvider = 'formsubmit' | 'web3forms' | 'emailjs' | 'webhook';
+
+export interface EmailSettings {
+  enabled: boolean;
+  notificationEmails: string;
+  fromName: string;
+  subjectPrefix: string;
+  deliveryProvider: EmailDeliveryProvider;
+  web3formsAccessKey: string;
+  emailjsServiceId: string;
+  emailjsTemplateId: string;
+  emailjsCustomerTemplateId?: string;
+  emailjsPublicKey: string;
+  webhookUrl: string;
+  updatedAt?: string;
+}
+
 export interface EmailLog {
   id: string;
   leadId: string;
@@ -39,7 +56,8 @@ export interface EmailLog {
   htmlBody: string;
   type: 'customer_confirmation' | 'admin_notification';
   sentAt: string;
-  status: 'Delivered' | 'Sent';
+  status: 'Delivered' | 'Sent' | 'Pending Activation' | 'Failed';
+  deliveryNote?: string;
 }
 
 export interface PipedriveConfig {
@@ -197,4 +215,5 @@ export interface CMSData {
   servicesContent?: ServicesPageContent;
   videos?: VideoItem[];
   videoSectionContent?: VideoSectionContent;
+  emailSettings?: EmailSettings;
 }
