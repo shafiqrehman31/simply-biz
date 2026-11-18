@@ -16,7 +16,12 @@ import {
   saveLeadToFirestore, 
   updateLeadStatusInFirestore as updateLeadStatusInDb, 
   subscribeToFirestoreLeads, 
-  fetchFirestoreLeads 
+  fetchFirestoreLeads,
+  saveVideoToFirestore,
+  deleteVideoFromFirestore,
+  subscribeToFirestoreVideos,
+  saveVideoSectionToFirestore,
+  subscribeToFirestoreVideoSection
 } from './firebase';
 
 const STORAGE_KEYS = {
@@ -698,4 +703,56 @@ export async function syncLeadToPipedrive(lead: Lead, config: PipedriveConfig): 
       message: `Pipedrive sync failed: ${errorMsg}`,
     };
   }
+}
+
+// Cloud Firestore synchronization for Video Showcase (cross-browser persistence)
+export async function saveVideoToCloud(video: VideoItem): Promise<void> {
+  if (video.videoUrl.startsWith('idb://')) {
+    return;
+  }
+  await saveVideoToFirestore(video);
+}
+
+export async function syncAllVideosToCloud(videos: VideoItem[]): Promise<void> {
+  const shareable = videos.filter((v) => !v.videoUrl.startsWith('idb://'));
+  await Promise.all(shareable.map((v) => saveVideoToFirestore(v)));
+}
+
+export async function deleteVideoFromCloud(videoId: string): Promise<void> {
+  await deleteVideoFromFirestore(videoId);
+}
+
+export function subscribeToVideos(callback: (videos: VideoItem[]) => void): () => void {
+  return subscribeToFirestoreVideos(
+    (firestoreVideos) => {
+      if (firestoreVideos.length > 0) {
+        const cms = getCMSData();
+        const localOnlyIdb = (cms.videos || []).filter((v) => v.videoUrl.startsWith('idb://'));
+        const merged = [...localOnlyIdb, ...firestoreVideos];
+        saveCMSData({ ...cms, videos: merged });
+        callback(merged);
+      } else {
+        // Seed default built-in video to Firestore on initial load
+        DEFAULT_VIDEOS.forEach((vid) => {
+          saveVideoToFirestore(vid).catch(console.warn);
+        });
+        callback(getCMSData().videos || DEFAULT_VIDEOS);
+      }
+    },
+    () => {
+      callback(getCMSData().videos || DEFAULT_VIDEOS);
+    }
+  );
+}
+
+export async function saveVideoSectionToCloud(content: VideoSectionContent): Promise<void> {
+  await saveVideoSectionToFirestore(content);
+}
+
+export function subscribeToVideoSection(callback: (content: VideoSectionContent) => void): () => void {
+  return subscribeToFirestoreVideoSection((content) => {
+    const cms = getCMSData();
+    saveCMSData({ ...cms, videoSectionContent: content });
+    callback(content);
+  });
 }

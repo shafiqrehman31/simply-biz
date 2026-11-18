@@ -2,6 +2,16 @@ const DB_NAME = 'simplybiz_media_db';
 const DB_VERSION = 1;
 const STORE_NAME = 'videos';
 export const IDB_PREFIX = 'idb://';
+export const SERVER_STREAM_PREFIX = '/api/videos/stream/';
+
+export interface ServerUploadResult {
+  success: boolean;
+  id: string;
+  filename: string;
+  videoUrl: string;
+  fileSizeBytes: number;
+  detectedOrientation: 'portrait' | 'landscape' | 'auto';
+}
 
 function openMediaDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -28,12 +38,52 @@ export function isIndexedDbUrl(url?: string): boolean {
   return Boolean(url && url.startsWith(IDB_PREFIX));
 }
 
+export function isServerStreamUrl(url?: string): boolean {
+  return Boolean(url && url.startsWith(SERVER_STREAM_PREFIX));
+}
+
 export function extractIndexedDbId(url: string): string {
   return url.slice(IDB_PREFIX.length);
 }
 
 export function buildIndexedDbUrl(id: string): string {
   return `${IDB_PREFIX}${id}`;
+}
+
+export async function uploadVideoToServer(file: File): Promise<ServerUploadResult> {
+  const response = await fetch('/api/videos/upload', {
+    method: 'POST',
+    headers: {
+      'X-File-Name': encodeURIComponent(file.name),
+      'Content-Type': file.type || 'application/octet-stream',
+    },
+    body: file,
+  });
+
+  const contentType = response.headers.get('content-type') || '';
+  if (!contentType.includes('application/json')) {
+    throw new Error('Server upload endpoint is unavailable in static-only hosting.');
+  }
+
+  const data = await response.json();
+  if (!response.ok || !data?.success) {
+    throw new Error(data?.error || `Upload failed with status ${response.status}`);
+  }
+
+  return data as ServerUploadResult;
+}
+
+export async function deleteVideoFromServer(videoUrl: string): Promise<void> {
+  if (!isServerStreamUrl(videoUrl)) return;
+  const filename = videoUrl.slice(SERVER_STREAM_PREFIX.length);
+  if (!filename) return;
+  try {
+    await fetch(`/api/videos/${encodeURIComponent(filename)}`, {
+      method: 'DELETE',
+    });
+  } catch (err) {
+    console.warn('Unable to delete video file from server:', err);
+  }
 }
 
 export async function saveVideoBlob(id: string, blob: Blob): Promise<void> {
@@ -84,7 +134,9 @@ export async function deleteVideoBlob(id: string): Promise<void> {
   }
 }
 
-export async function resolveVideoUrl(videoUrl: string): Promise<{ url: string; isObjectUrl: boolean }> {
+export async function resolveVideoUrl(
+  videoUrl: string
+): Promise<{ url: string; isObjectUrl: boolean; missingLocalBlob?: boolean }> {
   if (!videoUrl) {
     return { url: '', isObjectUrl: false };
   }
@@ -93,7 +145,7 @@ export async function resolveVideoUrl(videoUrl: string): Promise<{ url: string; 
     const id = extractIndexedDbId(videoUrl);
     const blob = await getVideoBlob(id);
     if (!blob) {
-      return { url: '', isObjectUrl: false };
+      return { url: '', isObjectUrl: false, missingLocalBlob: true };
     }
     const objectUrl = URL.createObjectURL(blob);
     return { url: objectUrl, isObjectUrl: true };

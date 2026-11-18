@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { PageRoute, CMSData } from './types';
-import { getCMSData, saveCMSData } from './services/storage';
+import { getCMSData, saveCMSData, subscribeToVideos, subscribeToVideoSection } from './services/storage';
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
 import { FloatingActions } from './components/FloatingActions';
@@ -51,6 +51,28 @@ export default function App() {
     handleHashChange();
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
+  // Sync videos and video section headings in real time across all browsers via Firestore
+  useEffect(() => {
+    const unsubVideos = subscribeToVideos((syncedVideos) => {
+      setCmsData((prev) => ({
+        ...prev,
+        videos: syncedVideos,
+      }));
+    });
+
+    const unsubSection = subscribeToVideoSection((syncedSection) => {
+      setCmsData((prev) => ({
+        ...prev,
+        videoSectionContent: syncedSection,
+      }));
+    });
+
+    return () => {
+      unsubVideos();
+      unsubSection();
+    };
   }, []);
 
   const handleNavigate = (page: PageRoute) => {

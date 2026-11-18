@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { PageRoute, VideoItem, VideoSectionContent } from '../types';
 import { DEFAULT_VIDEOS, DEFAULT_VIDEO_SECTION_CONTENT } from '../services/storage';
-import { parseEmbedUrl, resolveVideoUrl } from '../services/videoStorage';
+import { isIndexedDbUrl, parseEmbedUrl, resolveVideoUrl } from '../services/videoStorage';
 import { ArrowRight, Check, Film, Play, AlertCircle } from 'lucide-react';
 
 interface VideoShowcaseSectionProps {
@@ -55,7 +55,7 @@ export const VideoShowcaseSection: React.FC<VideoShowcaseSectionProps> = ({
     }
 
     resolveVideoUrl(activeVideo.videoUrl)
-      .then(({ url, isObjectUrl }) => {
+      .then(({ url, isObjectUrl, missingLocalBlob }) => {
         if (cancelled) {
           if (isObjectUrl && url) URL.revokeObjectURL(url);
           return;
@@ -64,7 +64,13 @@ export const VideoShowcaseSection: React.FC<VideoShowcaseSectionProps> = ({
           objectUrlToRevoke = url;
         }
         if (!url) {
-          setVideoError('Video file is unavailable in this browser session. Re-upload it from the Admin Dashboard.');
+          if (missingLocalBlob || isIndexedDbUrl(activeVideo.videoUrl)) {
+            setVideoError(
+              'This video was stored only in the uploading browser. Re-upload it in Admin → Video Uploads so it plays across all browsers.'
+            );
+          } else {
+            setVideoError('Video file is currently unavailable.');
+          }
         }
         setResolvedSrc(url);
       })
@@ -269,10 +275,13 @@ export const VideoShowcaseSection: React.FC<VideoShowcaseSectionProps> = ({
                       }
                     }}
                     onError={() =>
-                      setVideoError('Unable to play this video format in the current browser.')
+                      setVideoError(
+                        'Unable to play this video format in the current browser. Please re-upload it in Admin → Video Uploads to convert it to universal MP4.'
+                      )
                     }
                     className="w-full h-full object-contain bg-black"
                   >
+                    <source src={resolvedSrc} type="video/mp4" />
                     Your browser does not support embedded HTML5 video.
                   </video>
                 )}

@@ -138,6 +138,100 @@
         }
       },
       "required": ["id", "leadId", "recipient", "sender", "subject", "htmlBody", "type", "sentAt", "status"]
+    },
+    "VideoItem": {
+      "title": "VideoItem",
+      "description": "Video briefing item displayed on the Simply Biz front-end showcase and managed in Admin",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the video",
+          "maxLength": 128
+        },
+        "title": {
+          "type": "string",
+          "description": "Display title of the video",
+          "maxLength": 200
+        },
+        "description": {
+          "type": "string",
+          "description": "Summary description shown beside the video player",
+          "maxLength": 2000
+        },
+        "category": {
+          "type": "string",
+          "description": "Topic category label",
+          "maxLength": 100
+        },
+        "videoUrl": {
+          "type": "string",
+          "description": "Server stream path, public MP4 URL, or embed URL",
+          "maxLength": 2000
+        },
+        "sourceType": {
+          "type": "string",
+          "description": "Origin type of the video",
+          "enum": ["local", "uploaded", "url", "embed"],
+          "maxLength": 20
+        },
+        "fileName": {
+          "type": "string",
+          "description": "Original uploaded filename",
+          "maxLength": 300
+        },
+        "fileSizeBytes": {
+          "type": "number",
+          "description": "File size in bytes"
+        },
+        "orientation": {
+          "type": "string",
+          "description": "Player aspect orientation",
+          "enum": ["auto", "portrait", "landscape"],
+          "maxLength": 20
+        },
+        "isActive": {
+          "type": "boolean",
+          "description": "Whether the video is visible on the public website"
+        },
+        "isFeatured": {
+          "type": "boolean",
+          "description": "Whether the video is selected as the primary featured video"
+        },
+        "order": {
+          "type": "number",
+          "description": "Display sort order"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "ISO creation timestamp",
+          "maxLength": 100
+        }
+      },
+      "required": ["id", "title", "videoUrl", "sourceType", "orientation", "isActive", "isFeatured", "order", "createdAt"]
+    },
+    "VideoSectionContent": {
+      "title": "VideoSectionContent",
+      "description": "Editable copy for the front-end video showcase section",
+      "type": "object",
+      "properties": {
+        "badgeText": {
+          "type": "string",
+          "description": "Section kicker text",
+          "maxLength": 100
+        },
+        "headline": {
+          "type": "string",
+          "description": "Section headline",
+          "maxLength": 300
+        },
+        "subheadline": {
+          "type": "string",
+          "description": "Section intro paragraph",
+          "maxLength": 2000
+        }
+      },
+      "required": ["badgeText", "headline", "subheadline"]
     }
   },
   "firestore": {
@@ -148,6 +242,14 @@
     "/emailLogs/{emailLogId}": {
       "schema": "EmailLog",
       "description": "Collection of dispatched email logs and audit records"
+    },
+    "/videos/{videoId}": {
+      "schema": "VideoItem",
+      "description": "Collection of front-end video showcase items synchronized across all browsers"
+    },
+    "/siteConfig/{configId}": {
+      "schema": "VideoSectionContent",
+      "description": "Shared site configuration documents such as videoSection copy"
     }
   }
 }

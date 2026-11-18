@@ -50,6 +50,32 @@ service cloud.firestore {
         && data.status is string && (data.status == 'Delivered' || data.status == 'Sent');
     }
 
+    function isValidVideoItem(data) {
+      return data.keys().hasAll(['id', 'title', 'videoUrl', 'sourceType', 'orientation', 'isActive', 'isFeatured', 'order', 'createdAt'])
+        && data.keys().hasOnly(['id', 'title', 'description', 'category', 'videoUrl', 'sourceType', 'fileName', 'fileSizeBytes', 'orientation', 'isActive', 'isFeatured', 'order', 'createdAt'])
+        && data.id is string && data.id.size() > 0 && data.id.size() <= 128
+        && data.title is string && data.title.size() > 0 && data.title.size() <= 200
+        && (!('description' in data) || (data.description is string && data.description.size() <= 2000))
+        && (!('category' in data) || (data.category is string && data.category.size() <= 100))
+        && data.videoUrl is string && data.videoUrl.size() > 0 && data.videoUrl.size() <= 2000
+        && data.sourceType is string && (data.sourceType == 'local' || data.sourceType == 'uploaded' || data.sourceType == 'url' || data.sourceType == 'embed')
+        && (!('fileName' in data) || data.fileName == null || (data.fileName is string && data.fileName.size() <= 300))
+        && (!('fileSizeBytes' in data) || data.fileSizeBytes == null || (data.fileSizeBytes is number && data.fileSizeBytes >= 0 && data.fileSizeBytes <= 2147483648))
+        && data.orientation is string && (data.orientation == 'auto' || data.orientation == 'portrait' || data.orientation == 'landscape')
+        && data.isActive is bool
+        && data.isFeatured is bool
+        && data.order is number && data.order >= 0 && data.order <= 10000
+        && data.createdAt is string && data.createdAt.size() > 0 && data.createdAt.size() <= 100;
+    }
+
+    function isValidVideoSectionContent(data) {
+      return data.keys().hasAll(['badgeText', 'headline', 'subheadline'])
+        && data.keys().hasOnly(['badgeText', 'headline', 'subheadline'])
+        && data.badgeText is string && data.badgeText.size() <= 100
+        && data.headline is string && data.headline.size() > 0 && data.headline.size() <= 300
+        && data.subheadline is string && data.subheadline.size() <= 2000;
+    }
+
     // Leads Collection: Public inquiries & Admin management
     match /leads/{leadId} {
       allow read: if true;
@@ -63,6 +89,25 @@ service cloud.firestore {
       allow read: if true;
       allow create: if isValidId(emailLogId) && isValidEmailLog(incoming());
       allow update, delete: if false;
+    }
+
+    // Videos Collection: Cross-browser video showcase catalog
+    match /videos/{videoId} {
+      allow read: if true;
+      allow create: if isValidId(videoId) && isValidVideoItem(incoming()) && incoming().id == videoId;
+      allow update: if isValidId(videoId)
+        && isValidVideoItem(incoming())
+        && incoming().id == existing().id
+        && incoming().createdAt == existing().createdAt
+        && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'description', 'category', 'videoUrl', 'sourceType', 'fileName', 'fileSizeBytes', 'orientation', 'isActive', 'isFeatured', 'order']);
+      allow delete: if isValidId(videoId);
+    }
+
+    // Site Config Collection: Shared video section copy
+    match /siteConfig/{configId} {
+      allow read: if true;
+      allow create, update: if isValidId(configId) && configId == 'videoSection' && isValidVideoSectionContent(incoming());
+      allow delete: if false;
     }
   }
 }

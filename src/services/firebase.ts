@@ -7,11 +7,12 @@ import {
   getDocs, 
   setDoc, 
   updateDoc, 
+  deleteDoc,
   onSnapshot, 
   getDocFromServer 
 } from 'firebase/firestore';
 import firebaseConfig from './firebaseConfig';
-import type { Lead, EmailLog } from '../types';
+import type { Lead, EmailLog, VideoItem, VideoSectionContent } from '../types';
 
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
@@ -187,6 +188,133 @@ export function subscribeToFirestoreEmailLogs(
   } catch (err) {
     console.warn('subscribeToFirestoreEmailLogs error:', err);
     if (onFallback) onFallback();
+    return () => {};
+  }
+}
+
+function sanitizeVideoForFirestore(video: VideoItem): Record<string, unknown> {
+  const docData: Record<string, unknown> = {
+    id: video.id,
+    title: video.title.slice(0, 200),
+    description: (video.description || '').slice(0, 2000),
+    category: (video.category || 'UAE Business Setup Guide').slice(0, 100),
+    videoUrl: video.videoUrl.slice(0, 2000),
+    sourceType: video.sourceType,
+    orientation: video.orientation,
+    isActive: Boolean(video.isActive),
+    isFeatured: Boolean(video.isFeatured),
+    order: typeof video.order === 'number' ? video.order : 1,
+    createdAt: video.createdAt || new Date().toISOString(),
+  };
+
+  if (video.fileName !== undefined) {
+    docData.fileName = String(video.fileName).slice(0, 300);
+  }
+  if (typeof video.fileSizeBytes === 'number') {
+    docData.fileSizeBytes = video.fileSizeBytes;
+  }
+  return docData;
+}
+
+/**
+ * Save or update a VideoItem in Firestore
+ */
+export async function saveVideoToFirestore(video: VideoItem): Promise<void> {
+  try {
+    const payload = sanitizeVideoForFirestore(video);
+    await setDoc(doc(db, 'videos', video.id), payload);
+  } catch (err) {
+    console.warn('Firestore saveVideo warning:', err);
+    try {
+      handleFirestoreError(err, OperationType.WRITE, `videos/${video.id}`);
+    } catch {
+      // Logged structured FirestoreErrorInfo for diagnostics without crashing UI
+    }
+  }
+}
+
+/**
+ * Delete a VideoItem from Firestore
+ */
+export async function deleteVideoFromFirestore(videoId: string): Promise<void> {
+  try {
+    await deleteDoc(doc(db, 'videos', videoId));
+  } catch (err) {
+    console.warn('Firestore deleteVideo warning:', err);
+  }
+}
+
+/**
+ * Subscribe in real-time to Videos collection in Firestore
+ */
+export function subscribeToFirestoreVideos(
+  onData: (videos: VideoItem[]) => void,
+  onFallback?: () => void
+): () => void {
+  try {
+    const colRef = collection(db, 'videos');
+    const unsubscribe = onSnapshot(
+      colRef,
+      (snapshot) => {
+        const firestoreVideos: VideoItem[] = [];
+        snapshot.forEach((docSnap) => {
+          firestoreVideos.push(docSnap.data() as VideoItem);
+        });
+        firestoreVideos.sort((a, b) => {
+          if (a.isFeatured !== b.isFeatured) return a.isFeatured ? -1 : 1;
+          return (a.order || 0) - (b.order || 0);
+        });
+        onData(firestoreVideos);
+      },
+      (error) => {
+        console.warn('Firestore videos subscription fallback to local cache:', error);
+        if (onFallback) onFallback();
+      }
+    );
+    return unsubscribe;
+  } catch (err) {
+    console.warn('subscribeToFirestoreVideos error:', err);
+    if (onFallback) onFallback();
+    return () => {};
+  }
+}
+
+/**
+ * Save shared VideoSectionContent to Firestore
+ */
+export async function saveVideoSectionToFirestore(content: VideoSectionContent): Promise<void> {
+  try {
+    await setDoc(doc(db, 'siteConfig', 'videoSection'), {
+      badgeText: (content.badgeText || '').slice(0, 100),
+      headline: (content.headline || 'Inside UAE Business Formation with Simply Biz').slice(0, 300),
+      subheadline: (content.subheadline || '').slice(0, 2000),
+    });
+  } catch (err) {
+    console.warn('Firestore saveVideoSection warning:', err);
+  }
+}
+
+/**
+ * Subscribe in real-time to siteConfig/videoSection in Firestore
+ */
+export function subscribeToFirestoreVideoSection(
+  onData: (content: VideoSectionContent) => void
+): () => void {
+  try {
+    const docRef = doc(db, 'siteConfig', 'videoSection');
+    return onSnapshot(
+      docRef,
+      (docSnap) => {
+        if (docSnap.exists()) {
+          onData(docSnap.data() as VideoSectionContent);
+        }
+      },
+      (error) => {
+        console.warn('Firestore videoSection subscription warning:', error);
+      }
+    );
+  } catch (err) {
+    console.warn('subscribeToFirestoreVideoSection error:', err);
     return () => {};
   }
 }

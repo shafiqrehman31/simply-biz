@@ -3,17 +3,24 @@ import { CMSData, VideoItem, VideoSectionContent } from '../types';
 import {
   DEFAULT_VIDEO_SECTION_CONTENT,
   DEFAULT_VIDEOS,
+  deleteVideoFromCloud,
   saveCMSData,
+  saveVideoSectionToCloud,
+  saveVideoToCloud,
+  syncAllVideosToCloud,
 } from '../services/storage';
 import {
   buildIndexedDbUrl,
   deleteVideoBlob,
+  deleteVideoFromServer,
   extractIndexedDbId,
   formatFileSize,
   isIndexedDbUrl,
+  isServerStreamUrl,
   parseEmbedUrl,
   resolveVideoUrl,
   saveVideoBlob,
+  uploadVideoToServer,
 } from '../services/videoStorage';
 import {
   CheckCircle2,
@@ -39,6 +46,9 @@ interface AdminVideoManagerProps {
 
 const AdminVideoPreview: React.FC<{ video: VideoItem }> = ({ video }) => {
   const [src, setSrc] = useState<string>('');
+  const [missingLocal, setMissingLocal] = useState<boolean>(false);
+  const [playError, setPlayError] = useState<boolean>(false);
+
   const embedUrl =
     video.sourceType === 'embed'
       ? parseEmbedUrl(video.videoUrl) || video.videoUrl
@@ -48,13 +58,16 @@ const AdminVideoPreview: React.FC<{ video: VideoItem }> = ({ video }) => {
     if (embedUrl) return;
     let cancelled = false;
     let objUrl: string | null = null;
+    setMissingLocal(false);
+    setPlayError(false);
 
-    resolveVideoUrl(video.videoUrl).then(({ url, isObjectUrl }) => {
+    resolveVideoUrl(video.videoUrl).then(({ url, isObjectUrl, missingLocalBlob }) => {
       if (cancelled) {
         if (isObjectUrl && url) URL.revokeObjectURL(url);
         return;
       }
       if (isObjectUrl) objUrl = url;
+      setMissingLocal(Boolean(missingLocalBlob));
       setSrc(url);
     });
 
@@ -77,11 +90,17 @@ const AdminVideoPreview: React.FC<{ video: VideoItem }> = ({ video }) => {
     );
   }
 
-  if (!src) {
+  if (!src || playError) {
     return (
-      <div className="w-full h-44 rounded-xl bg-slate-900 flex flex-col items-center justify-center text-slate-400 text-xs gap-2">
+      <div className="w-full h-44 rounded-xl bg-slate-900 flex flex-col items-center justify-center text-slate-300 text-xs gap-2 p-4 text-center">
         <Video className="w-6 h-6 text-[#f85508]" />
-        <span>Preview unavailable</span>
+        <span>
+          {missingLocal
+            ? 'Saved in another browser only — re-upload to stream across browsers'
+            : playError
+            ? 'Preview unsupported in this browser'
+            : 'Preview unavailable'}
+        </span>
       </div>
     );
   }
@@ -93,8 +112,11 @@ const AdminVideoPreview: React.FC<{ video: VideoItem }> = ({ video }) => {
         controls
         playsInline
         preload="metadata"
+        onError={() => setPlayError(true)}
         className="w-full h-full object-contain"
-      />
+      >
+        <source src={src} type="video/mp4" />
+      </video>
     </div>
   );
 };
@@ -120,6 +142,7 @@ export const AdminVideoManager: React.FC<AdminVideoManagerProps> = ({
   const [orientation, setOrientation] = useState<'auto' | 'portrait' | 'landscape'>('auto');
   const [isFeaturedNew, setIsFeaturedNew] = useState<boolean>(false);
   const [isUploading, setIsUploading] = useState<boolean>(false);
+  const [uploadStatusText, setUploadStatusText] = useState<string>('');
   const [uploadError, setUploadError] = useState<string | null>(null);
 
   // Edit existing video modal state
@@ -150,8 +173,8 @@ export const AdminVideoManager: React.FC<AdminVideoManagerProps> = ({
       return;
     }
 
-    if (!file.type.startsWith('video/')) {
-      setUploadError('Please select a valid video file (MP4, WebM, MOV, or M4V).');
+    if (!file.type.startsWith('video/') && !/\.(mp4|mov|webm|m4v|mkv|avi)$/i.test(file.name)) {
+      setUploadError('Please select a valid video file (MP4, WebM, MOV, M4V, MKV, or AVI).');
       return;
     }
 
@@ -185,19 +208,42 @@ export const AdminVideoManager: React.FC<AdminVideoManagerProps> = ({
     }
 
     setIsUploading(true);
+    setUploadStatusText('Uploading video...');
+
     try {
-      const id = `video-${Date.now()}`;
+      let id = `video-${Date.now()}`;
       let videoUrl = '';
       let sourceType: VideoItem['sourceType'] = 'url';
       let fileName: string | undefined;
       let fileSizeBytes: number | undefined;
+      let resolvedOrientation: VideoItem['orientation'] = orientation;
+      let savedInBrowserOnly = false;
 
       if (uploadMode === 'file' && selectedFile) {
-        await saveVideoBlob(id, selectedFile);
-        videoUrl = buildIndexedDbUrl(id);
-        sourceType = 'uploaded';
         fileName = selectedFile.name;
         fileSizeBytes = selectedFile.size;
+
+        try {
+          setUploadStatusText('Uploading & optimizing video for all browsers...');
+          const serverResult = await uploadVideoToServer(selectedFile);
+          id = serverResult.id;
+          videoUrl = serverResult.videoUrl;
+          fileSizeBytes = serverResult.fileSizeBytes || selectedFile.size;
+          sourceType = 'uploaded';
+          if (orientation === 'auto' && serverResult.detectedOrientation !== 'auto') {
+            resolvedOrientation = serverResult.detectedOrientation;
+          }
+        } catch (serverErr) {
+          // Fallback to browser IndexedDB only if server upload route does not exist (e.g. static Vercel build)
+          const msg = serverErr instanceof Error ? serverErr.message : '';
+          if (!msg.includes('unavailable in static-only hosting')) {
+            throw serverErr;
+          }
+          await saveVideoBlob(id, selectedFile);
+          videoUrl = buildIndexedDbUrl(id);
+          sourceType = 'uploaded';
+          savedInBrowserOnly = true;
+        }
       } else {
         const trimmed = externalUrl.trim();
         const embed = parseEmbedUrl(trimmed);
@@ -216,7 +262,7 @@ export const AdminVideoManager: React.FC<AdminVideoManagerProps> = ({
         sourceType,
         fileName,
         fileSizeBytes,
-        orientation,
+        orientation: resolvedOrientation,
         isActive: true,
         isFeatured: isFeaturedNew,
         order: videos.length + 1,
@@ -227,13 +273,22 @@ export const AdminVideoManager: React.FC<AdminVideoManagerProps> = ({
         ? videos.map((v) => ({ ...v, isFeatured: false }))
         : videos;
 
+      const updatedVideos = [newVideo, ...baseVideos];
       const updatedCMS: CMSData = {
         ...cmsData,
-        videos: [newVideo, ...baseVideos],
+        videos: updatedVideos,
       };
 
       onUpdateCMS(updatedCMS);
       saveCMSData(updatedCMS);
+
+      if (!savedInBrowserOnly) {
+        if (isFeaturedNew) {
+          await syncAllVideosToCloud(updatedVideos);
+        } else {
+          await saveVideoToCloud(newVideo);
+        }
+      }
 
       // Reset form
       setSelectedFile(null);
@@ -248,27 +303,33 @@ export const AdminVideoManager: React.FC<AdminVideoManagerProps> = ({
       setOrientation('auto');
       setIsFeaturedNew(false);
 
-      onSaveSuccess(`Video "${newVideo.title}" uploaded and published to the front page.`);
+      onSaveSuccess(
+        savedInBrowserOnly
+          ? `Video "${newVideo.title}" saved in this browser. For cross-browser playback on static hosting, use a Video URL / YouTube link.`
+          : `Video "${newVideo.title}" converted to universal MP4 and synced across all browsers.`
+      );
     } catch (err) {
       setUploadError(
         err instanceof Error ? err.message : 'Failed to upload video. Please try again.'
       );
     } finally {
       setIsUploading(false);
+      setUploadStatusText('');
     }
   };
 
-  const handleSaveSectionCopy = () => {
+  const handleSaveSectionCopy = async () => {
     const updatedCMS: CMSData = {
       ...cmsData,
       videoSectionContent: sectionDraft,
     };
     onUpdateCMS(updatedCMS);
     saveCMSData(updatedCMS);
-    onSaveSuccess('Front-end video showcase headings updated successfully.');
+    await saveVideoSectionToCloud(sectionDraft);
+    onSaveSuccess('Front-end video showcase headings updated across all browsers.');
   };
 
-  const handleSetFeatured = (id: string) => {
+  const handleSetFeatured = async (id: string) => {
     const updatedVideos = videos.map((v) => ({
       ...v,
       isFeatured: v.id === id,
@@ -277,22 +338,29 @@ export const AdminVideoManager: React.FC<AdminVideoManagerProps> = ({
     const updatedCMS: CMSData = { ...cmsData, videos: updatedVideos };
     onUpdateCMS(updatedCMS);
     saveCMSData(updatedCMS);
+    await syncAllVideosToCloud(updatedVideos);
     onSaveSuccess('Featured video updated on the homepage showcase.');
   };
 
-  const handleToggleActive = (id: string) => {
+  const handleToggleActive = async (id: string) => {
     const updatedVideos = videos.map((v) =>
       v.id === id ? { ...v, isActive: !v.isActive } : v
     );
     const updatedCMS: CMSData = { ...cmsData, videos: updatedVideos };
     onUpdateCMS(updatedCMS);
     saveCMSData(updatedCMS);
+    const changed = updatedVideos.find((v) => v.id === id);
+    if (changed) {
+      await saveVideoToCloud(changed);
+    }
     onSaveSuccess('Video visibility updated.');
   };
 
   const handleDeleteVideo = async (video: VideoItem) => {
     if (isIndexedDbUrl(video.videoUrl)) {
       await deleteVideoBlob(extractIndexedDbId(video.videoUrl));
+    } else if (isServerStreamUrl(video.videoUrl)) {
+      await deleteVideoFromServer(video.videoUrl);
     }
     const remaining = videos.filter((v) => v.id !== video.id);
     const updatedCMS: CMSData = {
@@ -301,10 +369,11 @@ export const AdminVideoManager: React.FC<AdminVideoManagerProps> = ({
     };
     onUpdateCMS(updatedCMS);
     saveCMSData(updatedCMS);
+    await deleteVideoFromCloud(video.id);
     onSaveSuccess(`Removed "${video.title}" from the video library.`);
   };
 
-  const handleSaveEditedVideo = () => {
+  const handleSaveEditedVideo = async () => {
     if (!editingVideo || !editingVideo.title.trim()) return;
     const updatedVideos = videos.map((v) =>
       v.id === editingVideo.id
@@ -316,8 +385,9 @@ export const AdminVideoManager: React.FC<AdminVideoManagerProps> = ({
     const updatedCMS: CMSData = { ...cmsData, videos: updatedVideos };
     onUpdateCMS(updatedCMS);
     saveCMSData(updatedCMS);
+    await saveVideoToCloud(editingVideo);
     setEditingVideo(null);
-    onSaveSuccess('Video details updated.');
+    onSaveSuccess('Video details updated across all browsers.');
   };
 
   const urlEmbedPreview = uploadMode === 'url' ? parseEmbedUrl(externalUrl) : null;
@@ -338,7 +408,7 @@ export const AdminVideoManager: React.FC<AdminVideoManagerProps> = ({
                 <span>Upload Video to Showcase</span>
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
-                Upload MP4, WebM, or MOV video files directly, or link a YouTube / Vimeo video.
+                Automatically converts uploaded videos to universal MP4 (H.264/AAC) and syncs across all browsers.
               </p>
             </div>
             <div className="flex items-center gap-1.5 neo-inset p-1 rounded-xl shrink-0">
@@ -384,7 +454,7 @@ export const AdminVideoManager: React.FC<AdminVideoManagerProps> = ({
           {uploadMode === 'file' ? (
             <div className="space-y-3">
               <label className="block text-xs font-bold text-slate-700">
-                Select Video File (MP4, WebM, MOV)
+                Select Video File (MP4, MOV, WebM, MKV, AVI)
               </label>
               <div
                 onClick={() => fileInputRef.current?.click()}
@@ -419,7 +489,7 @@ export const AdminVideoManager: React.FC<AdminVideoManagerProps> = ({
                       Click to browse or drag &amp; drop a video file
                     </div>
                     <div className="text-xs text-slate-500">
-                      Supports portrait (9:16) and widescreen (16:9) MP4 / WebM / MOV files
+                      Supports portrait (9:16) and widescreen (16:9) files up to 250 MB
                     </div>
                   </div>
                 )}
@@ -535,14 +605,17 @@ export const AdminVideoManager: React.FC<AdminVideoManagerProps> = ({
             </label>
           </div>
 
-          <div className="flex justify-end pt-2">
+          <div className="flex items-center justify-between gap-3 pt-2">
+            <span className="text-xs font-semibold text-[#00106b]">
+              {uploadStatusText}
+            </span>
             <button
               type="submit"
               disabled={isUploading}
               className="neo-btn-orange px-6 py-3 rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer disabled:opacity-60 whitespace-nowrap"
             >
               <Plus className="w-4 h-4" />
-              <span>{isUploading ? 'Uploading Video...' : 'Upload & Publish Video'}</span>
+              <span>{isUploading ? 'Processing & Publishing...' : 'Upload & Publish Video'}</span>
             </button>
           </div>
         </form>
@@ -610,10 +683,10 @@ export const AdminVideoManager: React.FC<AdminVideoManagerProps> = ({
           <div className="neo-inset rounded-2xl p-4 bg-white/60 text-xs text-slate-600 space-y-1.5">
             <div className="font-bold text-[#00106b] flex items-center gap-1.5">
               <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-              <span>Storage Notice</span>
+              <span>Cross-Browser Playback</span>
             </div>
             <p className="leading-relaxed">
-              Uploaded video files are stored in your browser&apos;s IndexedDB media vault for instant playback without localStorage size limits. For multi-device sharing, use a public MP4, YouTube, or Vimeo URL.
+              Uploaded videos are automatically normalized to standard H.264 / AAC MP4 with byte-range streaming and published to Cloud Firestore so visitors in Chrome, Safari, Edge, Firefox, and mobile browsers can watch immediately.
             </p>
           </div>
         </div>
@@ -646,8 +719,10 @@ export const AdminVideoManager: React.FC<AdminVideoManagerProps> = ({
                     {vid.category}
                   </span>
                   <span className="text-slate-500 shrink-0">
-                    {vid.sourceType === 'uploaded'
-                      ? `Uploaded${vid.fileSizeBytes ? ` · ${formatFileSize(vid.fileSizeBytes)}` : ''}`
+                    {isIndexedDbUrl(vid.videoUrl)
+                      ? 'Local Browser Only'
+                      : vid.sourceType === 'uploaded'
+                      ? `Cloud MP4${vid.fileSizeBytes ? ` · ${formatFileSize(vid.fileSizeBytes)}` : ''}`
                       : vid.sourceType === 'local'
                       ? 'Built-in Asset'
                       : vid.sourceType === 'embed'
