@@ -119,31 +119,31 @@ export const ServicesPage: React.FC<ServicesPageProps> = ({
                 <div className="w-14 h-14 rounded-2xl neo-inset flex items-center justify-center">
                   {getServiceIcon(service.iconName)}
                 </div>
-                <span className="text-xs font-semibold px-2.5 py-1 rounded-md bg-white/60 text-slate-600">
+                <span className="text-sm font-semibold px-3 py-1 rounded-md bg-white/60 text-slate-600">
                   {service.category}
                 </span>
               </div>
 
               <div>
-                <h3 className="text-xl font-bold text-[#00106b]">
+                <h3 className="text-xl sm:text-2xl font-bold text-[#00106b]">
                   {service.title}
                 </h3>
-                <p className="text-xs text-[#f85508] font-bold mt-1">
+                <p className="text-base text-[#f85508] font-extrabold mt-1.5">
                   {service.startingPrice}
                 </p>
               </div>
 
-              <p className="text-xs text-slate-600 leading-relaxed">
+              <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
                 {service.fullDesc}
               </p>
 
-              <div className="space-y-2 pt-3 border-t border-slate-200">
-                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+              <div className="space-y-2.5 pt-3 border-t border-slate-200">
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
                   What's Included:
                 </span>
                 {service.features.map((feat, i) => (
-                  <div key={i} className="flex items-start gap-2 text-xs text-slate-700">
-                    <Check className="w-3.5 h-3.5 text-[#f85508] shrink-0 mt-0.5" />
+                  <div key={i} className="flex items-start gap-2.5 text-sm text-slate-700">
+                    <Check className="w-4 h-4 text-[#f85508] shrink-0 mt-0.5" />
                     <span>{feat}</span>
                   </div>
                 ))}
@@ -151,8 +151,8 @@ export const ServicesPage: React.FC<ServicesPageProps> = ({
             </div>
 
             <div className="pt-4 border-t border-slate-200 flex items-center justify-between">
-              <div className="flex items-center gap-1.5 text-xs text-slate-500">
-                <Clock className="w-3.5 h-3.5 text-[#00106b]" />
+              <div className="flex items-center gap-1.5 text-sm text-slate-500">
+                <Clock className="w-4 h-4 text-[#00106b]" />
                 <span className="font-semibold text-slate-700">{service.timeline}</span>
               </div>
               <button
@@ -162,10 +162,10 @@ export const ServicesPage: React.FC<ServicesPageProps> = ({
                   }
                   onNavigate('contact');
                 }}
-                className="neo-btn-primary px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
+                className="neo-btn-primary px-4 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-1.5 cursor-pointer"
               >
                 <span>Request Quote</span>
-                <ArrowRight className="w-3.5 h-3.5 text-[#f85508]" />
+                <ArrowRight className="w-4 h-4 text-[#f85508]" />
               </button>
             </div>
           </div>

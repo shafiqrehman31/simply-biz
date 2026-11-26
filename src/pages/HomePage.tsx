@@ -133,7 +133,7 @@
                   <span>Need Instant Answers on UAE Jurisdictions, Visas & Costs?</span>
                 </div>
                 <div className="text-xs text-slate-500 mt-0.5">
-                  Sara Darwish replies in seconds with Free Zone comparisons, visa rules, and itemized quotes.
+                  Sara replies in seconds with Free Zone comparisons, visa rules, and itemized quotes.
                 </div>
               </div>
             </div>
@@ -149,7 +149,7 @@
               className="w-full sm:w-auto px-6 py-3 rounded-xl text-xs font-bold bg-[#00106b] hover:bg-[#001894] text-white flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer whitespace-nowrap hover:scale-102 shrink-0 border border-white/40"
             >
               <MessageCircle className="w-4 h-4 fill-white text-[#00106b]" />
-              <span>Sara Darwish - Setup Advisor</span>
+              <span>Sara - Setup Advisor</span>
             </button>
           </div>
         </div>
@@ -193,13 +193,10 @@
                 className="neo-box neo-box-hover rounded-2xl p-7 flex flex-col justify-between group"
               >
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center">
                     <div className="w-12 h-12 rounded-xl neo-inset flex items-center justify-center">
                       {getServiceIcon(service.iconName)}
                     </div>
-                    <span className="text-xs font-semibold text-slate-500">
-                      {service.category}
-                    </span>
                   </div>
 
                   <h3 className="text-xl font-bold text-[#00106b] group-hover:text-[#f85508] transition-colors">
@@ -469,7 +466,7 @@
                 className="w-full sm:w-auto px-5 py-3.5 rounded-xl font-bold text-sm bg-[#00106b] hover:bg-[#001894] text-white flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer whitespace-nowrap"
               >
                 <MessageCircle className="w-4 h-4 fill-white text-[#00106b]" />
-                <span>Sara Darwish - Setup Advisor</span>
+                <span>Sara - Setup Advisor</span>
               </button>
               <button
                 onClick={() => onNavigate('services')}

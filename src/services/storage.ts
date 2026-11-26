@@ -183,7 +183,7 @@ export const DEFAULT_CMS_DATA: CMSData = {
       highlightText: 'Transparent. Reliable. Compliant.',
       subtitle: 'Incorporate with clarity across 40+ UAE free zones and mainland jurisdictions. Fixed itemized quotes, zero hidden immigration or banking surprises.',
       imageUrl: APP_IMAGES.heroDubai,
-      ctaText: 'Explore Setup Options',
+      ctaText: 'Explore Setup',
       ctaAction: 'services',
       secondaryCtaText: 'Get Free Quote',
       badgeText: 'Official UAE Corporate Concierge',
@@ -196,7 +196,7 @@ export const DEFAULT_CMS_DATA: CMSData = {
       highlightText: 'Speed & Regulatory Precision.',
       subtitle: 'From trade name reservation to MOA notarization, Ejari leasing, and VIP biometrics for your Emirates ID in record time.',
       imageUrl: APP_IMAGES.heroExecutive,
-      ctaText: 'Compare Mainland vs Free Zone',
+      ctaText: 'Explore Setup',
       ctaAction: 'why-us',
       secondaryCtaText: 'Get Free Quote',
       badgeText: 'DED Dubai & TAMM Abu Dhabi Aligned',
@@ -209,7 +209,7 @@ export const DEFAULT_CMS_DATA: CMSData = {
       highlightText: 'Fast-Track UAE Residence.',
       subtitle: 'Establishment cards, 2-year partner visas, 5-year Green Residences, and multi-currency corporate banking assistance.',
       imageUrl: APP_IMAGES.heroDistrict,
-      ctaText: 'Visa Requirements Guide',
+      ctaText: 'Explore Setup',
       ctaAction: 'services',
       secondaryCtaText: 'Get Free Quote',
       badgeText: 'Over 1,200+ Visas Processed',
@@ -538,8 +538,14 @@ export function getCMSData(): CMSData {
 
     if (data.heroSlides) {
       const defaultImgs = [APP_IMAGES.heroDubai, APP_IMAGES.heroExecutive, APP_IMAGES.heroDistrict];
+      const legacyCtaTexts = new Set([
+        'Explore Setup Options',
+        'Compare Mainland vs Free Zone',
+        'Visa Requirements Guide',
+      ]);
       data.heroSlides = data.heroSlides.map((s, idx) => ({
         ...s,
+        ctaText: !s.ctaText || legacyCtaTexts.has(s.ctaText) ? 'Explore Setup' : s.ctaText,
         secondaryCtaText: 'Get Free Quote',
         imageUrl: isValidAssetUrl(s.imageUrl)
           ? s.imageUrl
@@ -912,7 +918,20 @@ export function subscribeToPublicCMS(callback: (patch: Partial<CMSData>) => void
     saveCMSData(merged);
     const cleanPatch: Partial<CMSData> = {};
     if (patch.branding) cleanPatch.branding = merged.branding;
-    if (patch.heroSlides) cleanPatch.heroSlides = patch.heroSlides;
+    if (patch.heroSlides) {
+      const legacyCtaTexts = new Set([
+        'Explore Setup Options',
+        'Compare Mainland vs Free Zone',
+        'Visa Requirements Guide',
+      ]);
+      cleanPatch.heroSlides = patch.heroSlides.map((s) => ({
+        ...s,
+        ctaText: !s.ctaText || legacyCtaTexts.has(s.ctaText) ? 'Explore Setup' : s.ctaText,
+        secondaryCtaText: 'Get Free Quote',
+      }));
+      merged.heroSlides = cleanPatch.heroSlides;
+      saveCMSData(merged);
+    }
     if (patch.services) cleanPatch.services = patch.services;
     if (patch.faqs) cleanPatch.faqs = patch.faqs;
     if (patch.testimonials) cleanPatch.testimonials = patch.testimonials;

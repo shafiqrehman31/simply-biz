@@ -4,8 +4,6 @@ import { DEFAULT_WHY_US_CONTENT } from '../services/storage';
 import { 
   Check, 
   X, 
-  ShieldAlert, 
-  ShieldCheck, 
   Clock, 
   Sparkles, 
   FileCheck2, 
@@ -122,10 +120,6 @@ export const WhyChooseUsPage: React.FC<WhyChooseUsPageProps> = ({ onNavigate, wh
       <div className="neo-box rounded-3xl p-8 sm:p-10 border border-white">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
           <div className="space-y-4">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full neo-inset text-[#f85508] text-xs font-bold">
-              <ShieldAlert className="w-4 h-4" />
-              <span>The Industry Pitfall</span>
-            </div>
             <h2 className="text-2xl sm:text-3xl font-extrabold text-[#00106b]">
               The Danger of Misleading "Starting From" Advertisements
             </h2>
@@ -149,20 +143,12 @@ export const WhyChooseUsPage: React.FC<WhyChooseUsPageProps> = ({ onNavigate, wh
           </div>
 
           <div className="neo-inset rounded-2xl p-6 sm:p-8 space-y-4 bg-white/70">
-            <div className="inline-flex items-center gap-2 text-xs font-bold text-emerald-700 uppercase">
-              <ShieldCheck className="w-4 h-4" />
-              <span>The Simply Biz Guarantee</span>
-            </div>
             <h3 className="text-xl font-bold text-[#00106b]">
               Itemized Quotations. Total Peace of Mind.
             </h3>
             <p className="text-xs text-slate-600 leading-relaxed">
               Every Simply Biz client receives a comprehensive financial statement detailing government statutory fees, PRO handling, visa allocations, medical test options, and annual renewal projections before executing any contract.
             </p>
-            <div className="p-3.5 rounded-xl neo-box text-xs font-semibold text-[#00106b] flex items-center justify-between">
-              <span>Client Transparency Index</span>
-              <span className="text-[#f85508] font-bold">100% Certified</span>
-            </div>
           </div>
         </div>
       </div>

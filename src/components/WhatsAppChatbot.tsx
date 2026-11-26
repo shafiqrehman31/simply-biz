@@ -43,7 +43,7 @@ export const WhatsAppChatbot: React.FC<WhatsAppChatbotProps> = ({
     {
       id: 'msg-1',
       sender: 'bot',
-      text: 'Marhaba! 👋 Welcome to Simply Biz UAE Corporate Concierge.\n\nI am Sara Darwish, your UAE business setup advisor. How can I assist you with your UAE company formation, investor residence visas, or corporate banking today?',
+      text: 'Marhaba! 👋 Welcome to Simply Biz UAE Corporate Concierge.\n\nI am Sara, your UAE business setup advisor. How can I assist you with your UAE company formation, investor residence visas, or corporate banking today?',
       time: 'Just now',
       options: [
         { label: '🏢 Free Zone vs Mainland', action: 'fz_vs_mainland' },
@@ -327,14 +327,14 @@ export const WhatsAppChatbot: React.FC<WhatsAppChatbotProps> = ({
           {/* Avatar with Online Badge */}
           <div className="relative">
             <div className="w-10 h-10 rounded-full bg-white text-[#00106b] flex items-center justify-center font-extrabold text-sm shadow-inner">
-              SD
+              S
             </div>
             <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-400 border-2 border-[#075E54] rounded-full" />
           </div>
 
           <div>
             <div className="flex items-center gap-1.5 font-bold text-sm leading-tight">
-              <span>Sara Darwish</span>
+              <span>Sara</span>
               <span className="w-3.5 h-3.5 rounded-full bg-emerald-400 text-[#075E54] flex items-center justify-center text-[9px] font-black" title="Verified UAE Business Advisor">
                 ✓
               </span>
@@ -464,19 +464,6 @@ export const WhatsAppChatbot: React.FC<WhatsAppChatbotProps> = ({
         >
           <Send className="w-4 h-4" />
         </button>
-      </div>
-
-      {/* Bottom Switch to Official WhatsApp Bar */}
-      <div className="bg-[#00106b] text-white px-3 py-1.5 text-center text-[11px] flex items-center justify-between">
-        <span className="truncate">Official WhatsApp: <strong>{branding.whatsappNumber}</strong></span>
-        <a
-          href={`https://wa.me/${cleanPhone || '971527104488'}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-[#f85508] hover:underline font-bold text-[10px] shrink-0 ml-2"
-        >
-          Open App &rarr;
-        </a>
       </div>
 
     </div>

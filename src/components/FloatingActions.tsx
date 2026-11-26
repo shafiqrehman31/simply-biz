@@ -69,7 +69,7 @@ export const FloatingActions: React.FC<FloatingActionsProps> = ({
             window.open(whatsappUrl, '_blank');
           }
         }}
-        aria-label="Chat with Sara Darwish - Setup Advisor"
+        aria-label="Chat with Sara - Setup Advisor"
         className={`pointer-events-auto group flex items-center gap-3 p-3 sm:px-4 sm:py-3 rounded-full text-white shadow-xl hover:shadow-2xl transition-all duration-200 cursor-pointer hover:scale-105 active:scale-95 border-2 border-white/90 ${
           isChatbotOpen ? 'bg-[#075E54] ring-4 ring-emerald-300' : 'bg-[#25D366] hover:bg-[#20bd5a]'
         }`}
@@ -88,7 +88,7 @@ export const FloatingActions: React.FC<FloatingActionsProps> = ({
         {/* Text Label on desktop */}
         <div className="hidden sm:flex flex-col text-left pr-1">
           <span className="text-[10px] font-bold tracking-wider uppercase opacity-90 leading-tight">
-            {isChatbotOpen ? 'Active Chat' : 'Sara Darwish'}
+            {isChatbotOpen ? 'Active Chat' : 'Sara'}
           </span>
           <span className="text-xs font-extrabold leading-tight">
             {isChatbotOpen ? 'Close Concierge' : '- Setup Advisor'}
