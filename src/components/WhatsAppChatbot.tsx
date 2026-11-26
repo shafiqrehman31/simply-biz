@@ -318,10 +318,10 @@ export const WhatsAppChatbot: React.FC<WhatsAppChatbotProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 w-[94vw] sm:w-[410px] max-w-[420px] h-[580px] max-h-[85vh] flex flex-col rounded-3xl overflow-hidden shadow-2xl border border-white/60 bg-[#efeae2] transition-all animate-in fade-in slide-in-from-bottom-6 duration-200">
+    <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 w-[94vw] sm:w-[410px] max-w-[420px] h-[580px] max-h-[85vh] flex flex-col rounded-3xl overflow-hidden shadow-2xl border border-white/60 bg-[#fff7f3] transition-all animate-in fade-in slide-in-from-bottom-6 duration-200">
       
-      {/* WhatsApp Official Style Header */}
-      <div className="bg-[#075E54] text-white p-3.5 sm:p-4 flex items-center justify-between shadow-md shrink-0">
+      {/* Chatbot Header */}
+      <div className="bg-[#f85508] text-white p-3.5 sm:p-4 flex items-center justify-between shadow-md shrink-0">
         <div className="flex items-center gap-3">
           
           {/* Avatar with Online Badge */}
@@ -329,18 +329,18 @@ export const WhatsAppChatbot: React.FC<WhatsAppChatbotProps> = ({
             <div className="w-10 h-10 rounded-full bg-white text-[#00106b] flex items-center justify-center font-extrabold text-sm shadow-inner">
               S
             </div>
-            <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-400 border-2 border-[#075E54] rounded-full" />
+            <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-400 border-2 border-[#f85508] rounded-full" />
           </div>
 
           <div>
             <div className="flex items-center gap-1.5 font-bold text-sm leading-tight">
               <span>Sara</span>
-              <span className="w-3.5 h-3.5 rounded-full bg-emerald-400 text-[#075E54] flex items-center justify-center text-[9px] font-black" title="Verified UAE Business Advisor">
+              <span className="w-3.5 h-3.5 rounded-full bg-white text-[#f85508] flex items-center justify-center text-[9px] font-black" title="Verified UAE Business Advisor">
                 ✓
               </span>
             </div>
-            <div className="text-[11px] text-emerald-100 flex items-center gap-1 mt-0.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse" />
+            <div className="text-[11px] text-orange-50 flex items-center gap-1 mt-0.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
               <span>Online • Setup Advisor</span>
             </div>
           </div>
@@ -367,21 +367,14 @@ export const WhatsAppChatbot: React.FC<WhatsAppChatbotProps> = ({
         </div>
       </div>
 
-      {/* WhatsApp Chat Body */}
+      {/* Chat Body */}
       <div 
         className="flex-1 p-3.5 sm:p-4 overflow-y-auto space-y-3"
         style={{
-          backgroundImage: `radial-gradient(#cbd5e1 0.75px, transparent 0.75px)`,
+          backgroundImage: `radial-gradient(rgba(248, 85, 8, 0.14) 0.75px, transparent 0.75px)`,
           backgroundSize: '16px 16px',
         }}
       >
-        {/* Encrypted Notice Banner */}
-        <div className="flex justify-center">
-          <span className="text-[10px] bg-amber-100/90 text-amber-900 border border-amber-200/60 px-3 py-1 rounded-lg text-center shadow-xs font-medium">
-            🔒 Official Simply Biz automated concierge. Instant quotes with 0 hidden fees.
-          </span>
-        </div>
-
         {/* Messages Loop */}
         {messages.map((msg) => {
           const isUser = msg.sender === 'user';
@@ -459,7 +452,7 @@ export const WhatsAppChatbot: React.FC<WhatsAppChatbotProps> = ({
         <button
           onClick={() => handleSendMessage()}
           disabled={!inputMessage.trim()}
-          className="w-9 h-9 rounded-full bg-[#075E54] hover:bg-[#064e46] text-white flex items-center justify-center transition-colors disabled:opacity-40 cursor-pointer shadow-sm shrink-0"
+          className="w-9 h-9 rounded-full bg-[#f85508] hover:bg-[#d94805] text-white flex items-center justify-center transition-colors disabled:opacity-40 cursor-pointer shadow-sm shrink-0"
           aria-label="Send message"
         >
           <Send className="w-4 h-4" />

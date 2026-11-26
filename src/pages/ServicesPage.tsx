@@ -115,13 +115,10 @@ export const ServicesPage: React.FC<ServicesPageProps> = ({
             className="neo-box rounded-2xl p-7 flex flex-col justify-between space-y-6"
           >
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center">
                 <div className="w-14 h-14 rounded-2xl neo-inset flex items-center justify-center">
                   {getServiceIcon(service.iconName)}
                 </div>
-                <span className="text-sm font-semibold px-3 py-1 rounded-md bg-white/60 text-slate-600">
-                  {service.category}
-                </span>
               </div>
 
               <div>

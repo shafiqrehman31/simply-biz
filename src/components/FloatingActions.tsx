@@ -71,15 +71,15 @@ export const FloatingActions: React.FC<FloatingActionsProps> = ({
         }}
         aria-label="Chat with Sara - Setup Advisor"
         className={`pointer-events-auto group flex items-center gap-3 p-3 sm:px-4 sm:py-3 rounded-full text-white shadow-xl hover:shadow-2xl transition-all duration-200 cursor-pointer hover:scale-105 active:scale-95 border-2 border-white/90 ${
-          isChatbotOpen ? 'bg-[#075E54] ring-4 ring-emerald-300' : 'bg-[#25D366] hover:bg-[#20bd5a]'
+          isChatbotOpen ? 'bg-[#d94805] ring-4 ring-orange-200' : 'bg-[#f85508] hover:bg-[#e04a06]'
         }`}
       >
-        {/* WhatsApp Icon */}
+        {/* Chat Icon */}
         <div className="relative flex items-center justify-center">
-          <MessageCircle className="w-6 h-6 fill-white text-[#25D366]" />
+          <MessageCircle className="w-6 h-6 fill-white text-[#f85508]" />
           {!isChatbotOpen && (
             <>
-              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-300 rounded-full animate-ping" />
+              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-orange-200 rounded-full animate-ping" />
               <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-white rounded-full" />
             </>
           )}
