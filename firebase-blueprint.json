@@ -276,8 +276,8 @@
         },
         "deliveryProvider": {
           "type": "string",
-          "description": "Browser-compatible email delivery provider",
-          "enum": ["formsubmit", "web3forms", "emailjs", "webhook"],
+          "description": "Email delivery provider (direct browser gateway, Google Apps Script, webhook, or server SMTP)",
+          "enum": ["formsubmit", "google_apps_script", "web3forms", "emailjs", "webhook", "server_smtp"],
           "maxLength": 30
         },
         "web3formsAccessKey": {
@@ -317,6 +317,114 @@
         }
       },
       "required": ["enabled", "notificationEmails", "fromName", "subjectPrefix", "deliveryProvider"]
+    },
+    "SiteBranding": {
+      "title": "SiteBranding",
+      "description": "Public branding, contact details, logos, and social URLs managed in Admin",
+      "type": "object",
+      "properties": {
+        "siteName": { "type": "string", "maxLength": 200 },
+        "tagline": { "type": "string", "maxLength": 300 },
+        "siteEmail": { "type": "string", "maxLength": 200 },
+        "sitePhone": { "type": "string", "maxLength": 50 },
+        "whatsappNumber": { "type": "string", "maxLength": 50 },
+        "address": { "type": "string", "maxLength": 500 },
+        "logoUrl": { "type": "string", "maxLength": 500000 },
+        "logoWhiteUrl": { "type": "string", "maxLength": 500000 },
+        "faviconUrl": { "type": "string", "maxLength": 500000 },
+        "primaryColor": { "type": "string", "maxLength": 50 },
+        "accentColor": { "type": "string", "maxLength": 50 },
+        "facebookUrl": { "type": "string", "maxLength": 500 },
+        "instagramUrl": { "type": "string", "maxLength": 500 },
+        "linkedinUrl": { "type": "string", "maxLength": 500 },
+        "updatedAt": { "type": "string", "maxLength": 100 }
+      },
+      "required": ["siteName", "tagline", "siteEmail", "sitePhone", "whatsappNumber", "address", "logoUrl", "logoWhiteUrl", "faviconUrl", "primaryColor", "accentColor"]
+    },
+    "HeroSlidesDoc": {
+      "title": "HeroSlidesDoc",
+      "description": "Shared hero carousel slides managed in Admin",
+      "type": "object",
+      "properties": {
+        "items": { "type": "array" },
+        "updatedAt": { "type": "string", "maxLength": 100 }
+      },
+      "required": ["items"]
+    },
+    "ServicesDoc": {
+      "title": "ServicesDoc",
+      "description": "Shared featured corporate services catalog managed in Admin",
+      "type": "object",
+      "properties": {
+        "items": { "type": "array" },
+        "updatedAt": { "type": "string", "maxLength": 100 }
+      },
+      "required": ["items"]
+    },
+    "FaqsDoc": {
+      "title": "FaqsDoc",
+      "description": "Shared FAQ items managed in Admin",
+      "type": "object",
+      "properties": {
+        "items": { "type": "array" },
+        "updatedAt": { "type": "string", "maxLength": 100 }
+      },
+      "required": ["items"]
+    },
+    "TestimonialsDoc": {
+      "title": "TestimonialsDoc",
+      "description": "Shared client testimonials managed in Admin",
+      "type": "object",
+      "properties": {
+        "items": { "type": "array" },
+        "updatedAt": { "type": "string", "maxLength": 100 }
+      },
+      "required": ["items"]
+    },
+    "AboutPageContent": {
+      "title": "AboutPageContent",
+      "description": "Editable About Us page content managed in Admin",
+      "type": "object",
+      "properties": {
+        "badgeText": { "type": "string", "maxLength": 100 },
+        "headline": { "type": "string", "maxLength": 300 },
+        "subheadline": { "type": "string", "maxLength": 2000 },
+        "imageUrl": { "type": "string", "maxLength": 500000 },
+        "guidingPrincipleTitle": { "type": "string", "maxLength": 300 },
+        "guidingPrincipleText": { "type": "string", "maxLength": 2000 },
+        "guidingPrincipleBullets": { "type": "array" },
+        "pillars": { "type": "array" },
+        "updatedAt": { "type": "string", "maxLength": 100 }
+      },
+      "required": ["badgeText", "headline", "subheadline", "imageUrl", "guidingPrincipleTitle", "guidingPrincipleText", "guidingPrincipleBullets", "pillars"]
+    },
+    "WhyUsPageContent": {
+      "title": "WhyUsPageContent",
+      "description": "Editable Why Choose Us page content managed in Admin",
+      "type": "object",
+      "properties": {
+        "badgeText": { "type": "string", "maxLength": 100 },
+        "headline": { "type": "string", "maxLength": 300 },
+        "subheadline": { "type": "string", "maxLength": 2000 },
+        "guaranteeTitle": { "type": "string", "maxLength": 300 },
+        "guaranteeDesc": { "type": "string", "maxLength": 2000 },
+        "steps": { "type": "array" },
+        "updatedAt": { "type": "string", "maxLength": 100 }
+      },
+      "required": ["badgeText", "headline", "subheadline", "guaranteeTitle", "guaranteeDesc", "steps"]
+    },
+    "ServicesPageContent": {
+      "title": "ServicesPageContent",
+      "description": "Editable Services page header and estimator note managed in Admin",
+      "type": "object",
+      "properties": {
+        "badgeText": { "type": "string", "maxLength": 100 },
+        "headline": { "type": "string", "maxLength": 300 },
+        "subheadline": { "type": "string", "maxLength": 2000 },
+        "estimatorNote": { "type": "string", "maxLength": 2000 },
+        "updatedAt": { "type": "string", "maxLength": 100 }
+      },
+      "required": ["badgeText", "headline", "subheadline", "estimatorNote"]
     }
   },
   "firestore": {
@@ -334,7 +442,7 @@
     },
     "/siteConfig/{configId}": {
       "schema": "VideoSectionContent",
-      "description": "Shared site configuration documents including videoSection, videoDefaults, and emailSettings"
+      "description": "Shared site configuration documents including branding, heroSlides, services, faqs, testimonials, aboutContent, whyUsContent, servicesContent, videoSection, videoDefaults, and emailSettings"
     }
   }
 }

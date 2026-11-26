@@ -27,7 +27,8 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
 
   if (activeSlides.length === 0) return null;
 
-  const currentSlide = activeSlides[currentIndex];
+  const safeIndex = currentIndex % activeSlides.length;
+  const currentSlide = activeSlides[safeIndex] || activeSlides[0];
 
   const handlePrev = () => {
     setCurrentIndex((prev) => (prev - 1 + activeSlides.length) % activeSlides.length);
@@ -104,20 +105,21 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
           </div>
 
           {/* Interactive CTA Buttons */}
-          <div className="flex flex-wrap items-center gap-4 pt-4">
+          <div className="inline-grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 w-full sm:w-auto">
             <button
-              onClick={() => onNavigate(currentSlide.ctaAction)}
-              className="neo-btn-orange px-6 py-3.5 rounded-xl font-bold text-sm sm:text-base flex items-center gap-2 cursor-pointer shadow-lg hover:shadow-orange-500/20"
+              onClick={onOpenQuoteModal ? onOpenQuoteModal : () => onNavigate('contact')}
+              className="neo-btn-orange w-full px-6 py-3.5 rounded-xl font-bold text-sm sm:text-base flex items-center justify-center gap-2 cursor-pointer shadow-lg hover:shadow-orange-500/20 whitespace-nowrap"
             >
-              <span>{currentSlide.ctaText}</span>
-              <ArrowUpRight className="w-4 h-4" />
+              <span>Get Free Quote</span>
+              <ArrowUpRight className="w-4 h-4 shrink-0" />
             </button>
 
             <button
-              onClick={onOpenQuoteModal ? onOpenQuoteModal : () => onNavigate('contact')}
-              className="px-6 py-3.5 rounded-xl font-semibold text-sm sm:text-base text-white bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/25 transition-all flex items-center gap-2 cursor-pointer"
+              onClick={() => onNavigate(currentSlide.ctaAction)}
+              className="w-full px-6 py-3.5 rounded-xl font-bold text-sm sm:text-base text-white bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/25 transition-all flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap"
             >
-              <span>{currentSlide.secondaryCtaText}</span>
+              <span>{currentSlide.ctaText}</span>
+              <ArrowUpRight className="w-4 h-4 shrink-0" />
             </button>
           </div>
         </div>

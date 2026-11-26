@@ -9,8 +9,7 @@ import {
   getCMSData,
   saveCMSData,
   subscribeToVideos,
-  subscribeToVideoSection,
-  subscribeToEmailSettings,
+  subscribeToPublicCMS,
 } from './services/storage';
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
@@ -41,25 +40,32 @@ export default function App() {
   const [quoteServiceInitial, setQuoteServiceInitial] = useState<string | undefined>(undefined);
   const [isWhatsAppChatbotOpen, setIsWhatsAppChatbotOpen] = useState(false);
 
-  // Sync route with URL hash on load and popstate
+  // Sync route with URL hash or pathname (/admin or #admin) on load and navigation
   useEffect(() => {
-    const handleHashChange = () => {
-      const hash = window.location.hash.replace('#', '') as PageRoute;
+    const syncRouteFromLocation = () => {
+      const hash = window.location.hash.replace('#', '').toLowerCase() as PageRoute;
+      const pathRoute = window.location.pathname.replace(/^\/+|\/+$/g, '').toLowerCase() as PageRoute;
       const validRoutes: PageRoute[] = [
         'home', 'about', 'services', 'why-us', 'contact', 'admin',
         'terms', 'privacy', 'refund', 'disclaimer'
       ];
       if (validRoutes.includes(hash)) {
         setCurrentPage(hash);
+      } else if (validRoutes.includes(pathRoute)) {
+        setCurrentPage(pathRoute);
       }
     };
 
-    handleHashChange();
-    window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
+    syncRouteFromLocation();
+    window.addEventListener('hashchange', syncRouteFromLocation);
+    window.addEventListener('popstate', syncRouteFromLocation);
+    return () => {
+      window.removeEventListener('hashchange', syncRouteFromLocation);
+      window.removeEventListener('popstate', syncRouteFromLocation);
+    };
   }, []);
 
-  // Sync videos, video section headings, and email settings in real time across all browsers via Firestore
+  // Sync videos and all public CMS settings/content in real time across all browsers via Firestore
   useEffect(() => {
     const unsubVideos = subscribeToVideos((syncedVideos) => {
       setCmsData((prev) => ({
@@ -68,26 +74,41 @@ export default function App() {
       }));
     });
 
-    const unsubSection = subscribeToVideoSection((syncedSection) => {
+    const unsubPublicCms = subscribeToPublicCMS((patch) => {
       setCmsData((prev) => ({
         ...prev,
-        videoSectionContent: syncedSection,
+        ...patch,
       }));
     });
 
-    const unsubEmailSettings = subscribeToEmailSettings((syncedEmailSettings) => {
-      setCmsData((prev) => ({
-        ...prev,
-        emailSettings: syncedEmailSettings,
-      }));
-    });
+    const handleStorageSync = (e: StorageEvent) => {
+      if (e.key === 'simplybiz_cms_data_v4') {
+        setCmsData(getCMSData());
+      }
+    };
+    window.addEventListener('storage', handleStorageSync);
 
     return () => {
       unsubVideos();
-      unsubSection();
-      unsubEmailSettings();
+      unsubPublicCms();
+      window.removeEventListener('storage', handleStorageSync);
     };
   }, []);
+
+  // Reflect Admin branding favicon & title updates on the live document
+  useEffect(() => {
+    if (cmsData.branding?.faviconUrl) {
+      const link = document.querySelector<HTMLLinkElement>("link[rel*='icon']");
+      if (link && link.href !== cmsData.branding.faviconUrl) {
+        link.href = cmsData.branding.faviconUrl;
+      }
+    }
+    if (cmsData.branding?.siteName) {
+      document.title = cmsData.branding.tagline
+        ? `${cmsData.branding.siteName} | ${cmsData.branding.tagline}`
+        : cmsData.branding.siteName;
+    }
+  }, [cmsData.branding?.faviconUrl, cmsData.branding?.siteName, cmsData.branding?.tagline]);
 
   const handleNavigate = (page: PageRoute) => {
     setCurrentPage(page);

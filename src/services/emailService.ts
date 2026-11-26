@@ -9,6 +9,47 @@ export interface RealEmailDispatchResult {
   note: string;
 }
 
+export interface ServerSmtpStatus {
+  configured: boolean;
+  smtpHost?: string;
+  smtpUser?: string;
+}
+
+export const GOOGLE_APPS_SCRIPT_TEMPLATE = `function doPost(e) {
+  try {
+    var data = JSON.parse(e.postData.contents);
+    var recipients = Array.isArray(data.recipients) && data.recipients.length
+      ? data.recipients.join(',')
+      : Session.getActiveUser().getEmail();
+    MailApp.sendEmail({
+      to: recipients,
+      replyTo: data.lead && data.lead.email ? data.lead.email : undefined,
+      subject: data.subject || 'New Simply Biz Quote Request',
+      htmlBody: data.htmlBody || 'New quote received.'
+    });
+    return ContentService
+      .createTextOutput(JSON.stringify({ success: true }))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService
+      .createTextOutput(JSON.stringify({ success: false, error: String(err) }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}`;
+
+export async function checkServerSmtpStatus(): Promise<ServerSmtpStatus> {
+  try {
+    const res = await fetch('/api/email/status');
+    const ct = res.headers.get('content-type') || '';
+    if (!res.ok || !ct.includes('application/json')) {
+      return { configured: false };
+    }
+    return (await res.json()) as ServerSmtpStatus;
+  } catch {
+    return { configured: false };
+  }
+}
+
 /**
  * Parses comma, semicolon, or whitespace-separated email lists into clean unique addresses.
  */
@@ -155,7 +196,7 @@ export function generateCustomerEmail(lead: Lead, branding: SiteBranding): { sub
       <p style="font-size: 13px; color: #64748b; margin: 0; text-align: center;">
         Warm regards,<br>
         <strong style="color: #00106b;">Simply Biz Corporate Advisory Team</strong><br>
-        <span style="font-size: 11px;">Level 28, Marina Plaza, Dubai Marina & Downtown Business Bay, Dubai, UAE</span>
+        <span style="font-size: 11px;">${branding.address || 'Regal Tower 14th floor 1501 Al Mustaqbal Street Business Bay Dubai'}</span>
       </p>
     </div>
 
@@ -325,13 +366,18 @@ async function dispatchViaFormSubmit(
     return { ok: false, status: 'Failed', note: 'No notification email address configured.' };
   }
 
+  const customerEmail =
+    lead.email && lead.email.toLowerCase() !== primary.toLowerCase()
+      ? lead.email
+      : 'prospect@simply-biz.com';
+
   const payload: Record<string, string> = {
     _subject: subject,
-    _replyto: lead.email,
+    _replyto: customerEmail,
     _template: 'table',
     _captcha: 'false',
     name: lead.name,
-    email: lead.email,
+    email: customerEmail,
     'Lead Reference': lead.id,
     'Client Name': lead.name,
     'Client Email': lead.email,
@@ -376,7 +422,7 @@ async function dispatchViaFormSubmit(
       return {
         ok: false,
         status: 'Pending Activation',
-        note: `Activation required: check ${primary} (and spam folder) and click FormSubmit's confirmation link once.`,
+        note: `FormSubmit requires 1-time activation ("${message}"). Check ${primary} (Inbox, Spam & All Mail for "FormSubmit"). If Gmail did not receive the activation email, switch Delivery Method to Google Apps Script (Direct Gmail), Web3Forms, or Server Gmail SMTP.`,
       };
     }
 
@@ -534,19 +580,28 @@ async function dispatchViaWebhook(
   htmlBody: string,
   settings: EmailSettings
 ): Promise<RealEmailDispatchResult> {
-  if (!settings.webhookUrl.trim()) {
+  const url = settings.webhookUrl.trim();
+  if (!url) {
     return {
       ok: false,
       status: 'Failed',
-      note: 'Webhook URL is missing in Admin -> Email Settings.',
+      note:
+        settings.deliveryProvider === 'google_apps_script'
+          ? 'Google Apps Script Web App URL is missing in Admin -> Email Settings.'
+          : 'Webhook URL is missing in Admin -> Email Settings.',
     };
   }
 
+  const isGoogleAppsScript =
+    settings.deliveryProvider === 'google_apps_script' ||
+    /script\.google\.com/i.test(url);
+
   try {
-    const response = await fetch(settings.webhookUrl.trim(), {
+    // Google Apps Script Web Apps do not respond to CORS OPTIONS preflight; text/plain avoids preflight cleanly
+    const response = await fetch(url, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
+        'Content-Type': isGoogleAppsScript ? 'text/plain;charset=utf-8' : 'application/json',
       },
       body: JSON.stringify({
         event: 'simplybiz_new_quote',
@@ -560,23 +615,90 @@ async function dispatchViaWebhook(
     });
 
     if (response.ok) {
+      if (isGoogleAppsScript) {
+        const data = await response.json().catch(() => null);
+        if (data && data.success === false) {
+          return {
+            ok: false,
+            status: 'Failed',
+            note: data.error || 'Google Apps Script returned an error.',
+          };
+        }
+      }
       return {
         ok: true,
         status: 'Delivered',
-        note: `Forwarded quote JSON to webhook for ${recipients.join(', ')}.`,
+        note: isGoogleAppsScript
+          ? `Sent directly via your Gmail / Google Apps Script to ${recipients.join(', ')}.`
+          : `Forwarded quote JSON to webhook for ${recipients.join(', ')}.`,
       };
     }
 
     return {
       ok: false,
       status: 'Failed',
-      note: `Webhook returned HTTP ${response.status}.`,
+      note: `Endpoint returned HTTP ${response.status}.`,
     };
   } catch (err) {
     return {
       ok: false,
       status: 'Failed',
-      note: err instanceof Error ? err.message : 'Network error calling webhook.',
+      note: err instanceof Error ? err.message : 'Network error calling endpoint.',
+    };
+  }
+}
+
+async function dispatchViaServerSmtp(
+  recipients: string[],
+  lead: Lead,
+  subject: string,
+  htmlBody: string,
+  settings: EmailSettings
+): Promise<RealEmailDispatchResult> {
+  try {
+    const response = await fetch('/api/email/send', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        to: recipients,
+        fromName: settings.fromName || 'Simply Biz Quote Desk',
+        replyTo: lead.email,
+        subject,
+        html: htmlBody,
+        text: `New Quote Request from ${lead.name} (${lead.email}, ${lead.phone}) - ${lead.jurisdiction}, ${lead.visasNeeded} Visas.`,
+      }),
+    });
+
+    const ct = response.headers.get('content-type') || '';
+    if (!ct.includes('application/json')) {
+      return {
+        ok: false,
+        status: 'Failed',
+        note: 'Server SMTP API route (/api/email/send) is not available on this host.',
+      };
+    }
+
+    const data = await response.json().catch(() => ({}));
+    if (response.ok && data?.success) {
+      return {
+        ok: true,
+        status: 'Delivered',
+        note: `Sent directly via Server Gmail/SMTP to ${recipients.join(', ')}.`,
+      };
+    }
+
+    return {
+      ok: false,
+      status: 'Failed',
+      note: data?.error || `Server SMTP returned HTTP ${response.status}.`,
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      status: 'Failed',
+      note: err instanceof Error ? err.message : 'Failed contacting /api/email/send.',
     };
   }
 }
@@ -590,6 +712,9 @@ async function executeExternalEmailDelivery(
 ): Promise<RealEmailDispatchResult> {
   const provider = settings?.deliveryProvider || 'formsubmit';
 
+  if (provider === 'server_smtp' && settings) {
+    return dispatchViaServerSmtp(recipients, lead, subject, htmlBody, settings);
+  }
   if (provider === 'web3forms' && settings) {
     return dispatchViaWeb3Forms(recipients, lead, subject, settings);
   }
@@ -603,7 +728,7 @@ async function executeExternalEmailDelivery(
       settings
     );
   }
-  if (provider === 'webhook' && settings) {
+  if ((provider === 'webhook' || provider === 'google_apps_script') && settings) {
     return dispatchViaWebhook(recipients, lead, subject, htmlBody, settings);
   }
   return dispatchViaFormSubmit(recipients, lead, subject, settings);
@@ -736,7 +861,7 @@ export async function sendTestEmail(
   const dummyLead: Lead = {
     id: `test-quote-${Date.now().toString().slice(-4)}`,
     name: customLeadData?.name || 'Alexander Vance (Test Prospect)',
-    email: primaryRecipient,
+    email: 'prospect.test@simply-biz.com',
     phone: customLeadData?.phone || '+971 52 710 4488',
     company: customLeadData?.company || 'Vance Global Enterprise LLC',
     jurisdiction: customLeadData?.jurisdiction || 'Mainland',

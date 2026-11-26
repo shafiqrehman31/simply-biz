@@ -28,7 +28,16 @@ import {
   subscribeToFirestoreVideoSection,
   saveEmailSettingsToFirestore,
   fetchEmailSettingsFromFirestore,
-  subscribeToFirestoreEmailSettings
+  subscribeToFirestoreEmailSettings,
+  saveBrandingToFirestore,
+  saveHeroSlidesToFirestore,
+  saveServicesToFirestore,
+  saveFaqsToFirestore,
+  saveTestimonialsToFirestore,
+  saveAboutContentToFirestore,
+  saveWhyUsContentToFirestore,
+  saveServicesContentToFirestore,
+  subscribeToPublicSiteConfig
 } from './firebase';
 
 const STORAGE_KEYS = {
@@ -42,7 +51,7 @@ export const DEFAULT_BRANDING: SiteBranding = {
   siteEmail: 'info@simply-biz.com',
   sitePhone: '+971 4 582 9100',
   whatsappNumber: '+971 52 710 4488',
-  address: 'Level 28, Marina Plaza, Dubai Marina & Downtown Business Bay, Dubai, UAE',
+  address: 'Regal Tower 14th floor 1501 Al Mustaqbal Street Business Bay Dubai',
   logoUrl: APP_IMAGES.logoPng,
   logoWhiteUrl: APP_IMAGES.logoWhite,
   faviconUrl: APP_IMAGES.logoPng,
@@ -176,7 +185,7 @@ export const DEFAULT_CMS_DATA: CMSData = {
       imageUrl: APP_IMAGES.heroDubai,
       ctaText: 'Explore Setup Options',
       ctaAction: 'services',
-      secondaryCtaText: 'Free 15-Min Consultation',
+      secondaryCtaText: 'Get Free Quote',
       badgeText: 'Official UAE Corporate Concierge',
       order: 1,
       isActive: true,
@@ -189,7 +198,7 @@ export const DEFAULT_CMS_DATA: CMSData = {
       imageUrl: APP_IMAGES.heroExecutive,
       ctaText: 'Compare Mainland vs Free Zone',
       ctaAction: 'why-us',
-      secondaryCtaText: 'Request Itemized Quote',
+      secondaryCtaText: 'Get Free Quote',
       badgeText: 'DED Dubai & TAMM Abu Dhabi Aligned',
       order: 2,
       isActive: true,
@@ -202,7 +211,7 @@ export const DEFAULT_CMS_DATA: CMSData = {
       imageUrl: APP_IMAGES.heroDistrict,
       ctaText: 'Visa Requirements Guide',
       ctaAction: 'services',
-      secondaryCtaText: 'Speak to a Specialist',
+      secondaryCtaText: 'Get Free Quote',
       badgeText: 'Over 1,200+ Visas Processed',
       order: 3,
       isActive: true,
@@ -473,6 +482,19 @@ export function sanitizeImagePath(p: string | undefined): string {
     .replace(/^\/public\//, '/');
 }
 
+function isValidAssetUrl(url?: string): boolean {
+  if (!url || typeof url !== 'string') return false;
+  const trimmed = url.trim();
+  return (
+    trimmed.startsWith('data:') ||
+    trimmed.startsWith('blob:') ||
+    trimmed.startsWith('https://') ||
+    trimmed.startsWith('http://') ||
+    trimmed.startsWith('/assets/') ||
+    trimmed.startsWith('/images/')
+  );
+}
+
 // Helper to get CMS Data
 export function getCMSData(): CMSData {
   try {
@@ -485,23 +507,23 @@ export function getCMSData(): CMSData {
       data = { ...DEFAULT_CMS_DATA, ...parsed };
     }
 
-    // Auto-normalize image paths for production deployment using bundled Vite assets
+    // Preserve custom URLs/data URIs and only restore defaults if missing or legacy invalid path
     if (data.branding) {
-      if (!data.branding.logoUrl || !data.branding.logoUrl.startsWith('data:')) {
-        data.branding.logoUrl = APP_IMAGES.logoPng;
-      }
-      if (!data.branding.logoWhiteUrl || !data.branding.logoWhiteUrl.startsWith('data:')) {
-        data.branding.logoWhiteUrl = APP_IMAGES.logoWhite;
-      }
-      if (!data.branding.faviconUrl || !data.branding.faviconUrl.startsWith('data:')) {
-        data.branding.faviconUrl = APP_IMAGES.logoPng;
-      }
-      if (!data.branding.facebookUrl) {
-        data.branding.facebookUrl = DEFAULT_BRANDING.facebookUrl;
-      }
-      if (!data.branding.instagramUrl) {
-        data.branding.instagramUrl = DEFAULT_BRANDING.instagramUrl;
-      }
+      const legacyAddress = 'Level 28, Marina Plaza, Dubai Marina & Downtown Business Bay, Dubai, UAE';
+      const normalizedAddress =
+        !data.branding.address || data.branding.address === legacyAddress
+          ? DEFAULT_BRANDING.address
+          : data.branding.address;
+      data.branding = {
+        ...DEFAULT_BRANDING,
+        ...data.branding,
+        address: normalizedAddress,
+        logoUrl: isValidAssetUrl(data.branding.logoUrl) ? data.branding.logoUrl : APP_IMAGES.logoPng,
+        logoWhiteUrl: isValidAssetUrl(data.branding.logoWhiteUrl) ? data.branding.logoWhiteUrl : APP_IMAGES.logoWhite,
+        faviconUrl: isValidAssetUrl(data.branding.faviconUrl) ? data.branding.faviconUrl : APP_IMAGES.logoPng,
+        facebookUrl: data.branding.facebookUrl !== undefined ? data.branding.facebookUrl : DEFAULT_BRANDING.facebookUrl,
+        instagramUrl: data.branding.instagramUrl !== undefined ? data.branding.instagramUrl : DEFAULT_BRANDING.instagramUrl,
+      };
     }
 
     data.aboutContent = { ...DEFAULT_ABOUT_CONTENT, ...(data.aboutContent || {}) };
@@ -516,15 +538,13 @@ export function getCMSData(): CMSData {
 
     if (data.heroSlides) {
       const defaultImgs = [APP_IMAGES.heroDubai, APP_IMAGES.heroExecutive, APP_IMAGES.heroDistrict];
-      data.heroSlides = data.heroSlides.map((s, idx) => {
-        if (!s.imageUrl || !s.imageUrl.startsWith('data:')) {
-          return {
-            ...s,
-            imageUrl: defaultImgs[idx % defaultImgs.length] || APP_IMAGES.heroDubai,
-          };
-        }
-        return s;
-      });
+      data.heroSlides = data.heroSlides.map((s, idx) => ({
+        ...s,
+        secondaryCtaText: 'Get Free Quote',
+        imageUrl: isValidAssetUrl(s.imageUrl)
+          ? s.imageUrl
+          : defaultImgs[idx % defaultImgs.length] || APP_IMAGES.heroDubai,
+      }));
     }
 
     saveCMSData(data);
@@ -830,5 +850,77 @@ export function subscribeToEmailSettings(callback: (settings: EmailSettings) => 
     const cms = getCMSData();
     saveCMSData({ ...cms, emailSettings: merged });
     callback(merged);
+  });
+}
+
+export async function saveBrandingToCloud(branding: SiteBranding): Promise<void> {
+  await saveBrandingToFirestore(branding);
+}
+
+export async function saveHeroSlidesToCloud(slides: CMSData['heroSlides']): Promise<void> {
+  await saveHeroSlidesToFirestore(slides);
+}
+
+export async function saveServicesToCloud(services: CMSData['services']): Promise<void> {
+  await saveServicesToFirestore(services);
+}
+
+export async function saveFaqsToCloud(faqs: CMSData['faqs']): Promise<void> {
+  await saveFaqsToFirestore(faqs);
+}
+
+export async function saveTestimonialsToCloud(testimonials: CMSData['testimonials']): Promise<void> {
+  await saveTestimonialsToFirestore(testimonials);
+}
+
+export async function saveAboutContentToCloud(content: AboutPageContent): Promise<void> {
+  await saveAboutContentToFirestore(content);
+}
+
+export async function saveWhyUsContentToCloud(content: WhyUsPageContent): Promise<void> {
+  await saveWhyUsContentToFirestore(content);
+}
+
+export async function saveServicesContentToCloud(content: ServicesPageContent): Promise<void> {
+  await saveServicesContentToFirestore(content);
+}
+
+export function subscribeToPublicCMS(callback: (patch: Partial<CMSData>) => void): () => void {
+  return subscribeToPublicSiteConfig((patch) => {
+    const cms = getCMSData();
+    const legacyAddress = 'Level 28, Marina Plaza, Dubai Marina & Downtown Business Bay, Dubai, UAE';
+    const nextBranding = patch.branding
+      ? {
+          ...DEFAULT_BRANDING,
+          ...patch.branding,
+          address:
+            !patch.branding.address || patch.branding.address === legacyAddress
+              ? DEFAULT_BRANDING.address
+              : patch.branding.address,
+        }
+      : cms.branding;
+    const merged: CMSData = {
+      ...cms,
+      ...patch,
+      branding: nextBranding,
+      aboutContent: patch.aboutContent ? { ...DEFAULT_ABOUT_CONTENT, ...patch.aboutContent } : cms.aboutContent,
+      whyUsContent: patch.whyUsContent ? { ...DEFAULT_WHY_US_CONTENT, ...patch.whyUsContent } : cms.whyUsContent,
+      servicesContent: patch.servicesContent ? { ...DEFAULT_SERVICES_PAGE_CONTENT, ...patch.servicesContent } : cms.servicesContent,
+      videoSectionContent: patch.videoSectionContent ? { ...DEFAULT_VIDEO_SECTION_CONTENT, ...patch.videoSectionContent } : cms.videoSectionContent,
+      emailSettings: patch.emailSettings ? { ...DEFAULT_EMAIL_SETTINGS, ...patch.emailSettings } : cms.emailSettings,
+    };
+    saveCMSData(merged);
+    const cleanPatch: Partial<CMSData> = {};
+    if (patch.branding) cleanPatch.branding = merged.branding;
+    if (patch.heroSlides) cleanPatch.heroSlides = patch.heroSlides;
+    if (patch.services) cleanPatch.services = patch.services;
+    if (patch.faqs) cleanPatch.faqs = patch.faqs;
+    if (patch.testimonials) cleanPatch.testimonials = patch.testimonials;
+    if (patch.aboutContent) cleanPatch.aboutContent = merged.aboutContent;
+    if (patch.whyUsContent) cleanPatch.whyUsContent = merged.whyUsContent;
+    if (patch.servicesContent) cleanPatch.servicesContent = merged.servicesContent;
+    if (patch.videoSectionContent) cleanPatch.videoSectionContent = merged.videoSectionContent;
+    if (patch.emailSettings) cleanPatch.emailSettings = merged.emailSettings;
+    callback(cleanPatch);
   });
 }

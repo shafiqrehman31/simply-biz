@@ -31,9 +31,25 @@ import {
   subscribeToLeads,
   syncLeadsFromFirestore,
   updateLeadStatusInFirestore,
-  saveEmailSettingsToCloud
+  saveEmailSettingsToCloud,
+  saveBrandingToCloud,
+  saveHeroSlidesToCloud,
+  saveServicesToCloud,
+  saveFaqsToCloud,
+  saveTestimonialsToCloud,
+  saveAboutContentToCloud,
+  saveWhyUsContentToCloud,
+  saveServicesContentToCloud
 } from '../services/storage';
-import { getEmailLogs, getEmailLogsForLead, subscribeToEmailLogs, sendTestEmail } from '../services/emailService';
+import {
+  getEmailLogs,
+  getEmailLogsForLead,
+  subscribeToEmailLogs,
+  sendTestEmail,
+  GOOGLE_APPS_SCRIPT_TEMPLATE,
+  checkServerSmtpStatus,
+  ServerSmtpStatus,
+} from '../services/emailService';
 import { AdminVideoManager } from '../components/AdminVideoManager';
 import { 
   Users, 
@@ -313,6 +329,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
   const [isTestingPipedrive, setIsTestingPipedrive] = useState(false);
   const [pipedriveTestLog, setPipedriveTestLog] = useState<string | null>(null);
   const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(null);
+  const [saveErrorMessage, setSaveErrorMessage] = useState<string | null>(null);
 
   // CMS Subtabs
   const [cmsSubtab, setCmsSubtab] = useState<'hero' | 'services' | 'faqs' | 'testimonials' | 'about' | 'whyUs' | 'servicesPage'>('hero');
@@ -349,7 +366,39 @@ export const AdminPage: React.FC<AdminPageProps> = ({
   const [testProspectName, setTestProspectName] = useState('Alexander Vance');
   const [testJurisdiction, setTestJurisdiction] = useState('Mainland');
   const [isTestingEmail, setIsTestingEmail] = useState(false);
+  const [emailTestResultStatus, setEmailTestResultStatus] = useState<EmailLog['status'] | null>(null);
   const [emailTestFeedback, setEmailTestFeedback] = useState<string | null>(null);
+  const [lastTestedPreviewLog, setLastTestedPreviewLog] = useState<EmailLog | null>(null);
+  const [copiedScript, setCopiedScript] = useState(false);
+  const [serverSmtpStatus, setServerSmtpStatus] = useState<ServerSmtpStatus>({ configured: false });
+
+  useEffect(() => {
+    checkServerSmtpStatus().then(setServerSmtpStatus).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (cmsData.branding) {
+      setBrandingDraft(cmsData.branding);
+    }
+  }, [cmsData.branding]);
+
+  useEffect(() => {
+    if (cmsData.aboutContent) {
+      setAboutDraft(cmsData.aboutContent);
+    }
+  }, [cmsData.aboutContent]);
+
+  useEffect(() => {
+    if (cmsData.whyUsContent) {
+      setWhyUsDraft(cmsData.whyUsContent);
+    }
+  }, [cmsData.whyUsContent]);
+
+  useEffect(() => {
+    if (cmsData.servicesContent) {
+      setServicesPageDraft(cmsData.servicesContent);
+    }
+  }, [cmsData.servicesContent]);
 
   useEffect(() => {
     if (cmsData.emailSettings) {
@@ -368,39 +417,61 @@ export const AdminPage: React.FC<AdminPageProps> = ({
 
   // Trigger feedback banner
   const triggerSaveSuccess = (msg: string) => {
+    setSaveErrorMessage(null);
     setSaveSuccessMessage(msg);
     setTimeout(() => setSaveSuccessMessage(null), 4000);
   };
 
+  const triggerSaveError = (msg: string) => {
+    setSaveSuccessMessage(null);
+    setSaveErrorMessage(msg);
+    setTimeout(() => setSaveErrorMessage(null), 6000);
+  };
+
   // --- PAGE CONTENT SAVE HANDLERS ---
-  const handleSaveAboutContent = () => {
+  const handleSaveAboutContent = async () => {
     const updated = {
       ...cmsData,
       aboutContent: aboutDraft,
     };
     onUpdateCMS(updated);
     saveCMSData(updated);
-    triggerSaveSuccess('About Us page content updated successfully.');
+    try {
+      await saveAboutContentToCloud(aboutDraft);
+      triggerSaveSuccess('About Us page content saved & synced to live frontend.');
+    } catch (err) {
+      triggerSaveError(`Saved locally, but cloud sync failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
   };
 
-  const handleSaveWhyUsContent = () => {
+  const handleSaveWhyUsContent = async () => {
     const updated = {
       ...cmsData,
       whyUsContent: whyUsDraft,
     };
     onUpdateCMS(updated);
     saveCMSData(updated);
-    triggerSaveSuccess('Why Choose Us page content updated successfully.');
+    try {
+      await saveWhyUsContentToCloud(whyUsDraft);
+      triggerSaveSuccess('Why Choose Us page content saved & synced to live frontend.');
+    } catch (err) {
+      triggerSaveError(`Saved locally, but cloud sync failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
   };
 
-  const handleSaveServicesPageContent = () => {
+  const handleSaveServicesPageContent = async () => {
     const updated = {
       ...cmsData,
       servicesContent: servicesPageDraft,
     };
     onUpdateCMS(updated);
     saveCMSData(updated);
-    triggerSaveSuccess('Services page header & guidelines updated successfully.');
+    try {
+      await saveServicesContentToCloud(servicesPageDraft);
+      triggerSaveSuccess('Services page header & guidelines saved & synced to live frontend.');
+    } catch (err) {
+      triggerSaveError(`Saved locally, but cloud sync failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
   };
 
   // --- SERVICE ITEM HANDLERS ---
@@ -427,9 +498,9 @@ export const AdminPage: React.FC<AdminPageProps> = ({
     setServiceFeaturesText((service.features || []).join('\n'));
   };
 
-  const handleSaveService = () => {
+  const handleSaveService = async () => {
     if (!editingService || !editingService.title.trim()) {
-      alert('Please enter a service title.');
+      triggerSaveError('Please enter a service title.');
       return;
     }
     const featuresList = serviceFeaturesText
@@ -453,20 +524,33 @@ export const AdminPage: React.FC<AdminPageProps> = ({
     onUpdateCMS(updated);
     saveCMSData(updated);
     setEditingService(null);
-    triggerSaveSuccess(isNewService ? `Service "${finalizedService.title}" created.` : `Service "${finalizedService.title}" updated.`);
+    try {
+      await saveServicesToCloud(updatedServices);
+      triggerSaveSuccess(
+        isNewService
+          ? `Service "${finalizedService.title}" created & synced to live frontend.`
+          : `Service "${finalizedService.title}" updated & synced to live frontend.`
+      );
+    } catch (err) {
+      triggerSaveError(`Saved locally, but cloud sync failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
   };
 
-  const handleDeleteService = (id: string) => {
+  const handleDeleteService = async (id: string) => {
     if (cmsData.services.length <= 1) {
-      alert('You must keep at least one service.');
+      triggerSaveError('You must keep at least one service.');
       return;
     }
-    if (!confirm('Are you sure you want to remove this service?')) return;
     const updatedServices = cmsData.services.filter(s => s.id !== id);
     const updated = { ...cmsData, services: updatedServices };
     onUpdateCMS(updated);
     saveCMSData(updated);
-    triggerSaveSuccess('Service removed.');
+    try {
+      await saveServicesToCloud(updatedServices);
+      triggerSaveSuccess('Service removed & synced to live frontend.');
+    } catch (err) {
+      triggerSaveError(`Removed locally, but cloud sync failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
   };
 
   // --- FAQ ITEM HANDLERS ---
@@ -485,9 +569,9 @@ export const AdminPage: React.FC<AdminPageProps> = ({
     setEditingFaq(faq);
   };
 
-  const handleSaveFaq = () => {
+  const handleSaveFaq = async () => {
     if (!editingFaq || !editingFaq.question.trim() || !editingFaq.answer.trim()) {
-      alert('Please fill out both Question and Answer fields.');
+      triggerSaveError('Please fill out both Question and Answer fields.');
       return;
     }
     let updatedFaqs: FAQItem[];
@@ -500,20 +584,29 @@ export const AdminPage: React.FC<AdminPageProps> = ({
     onUpdateCMS(updated);
     saveCMSData(updated);
     setEditingFaq(null);
-    triggerSaveSuccess(isNewFaq ? 'New FAQ created.' : 'FAQ updated.');
+    try {
+      await saveFaqsToCloud(updatedFaqs);
+      triggerSaveSuccess(isNewFaq ? 'New FAQ created & synced to live frontend.' : 'FAQ updated & synced to live frontend.');
+    } catch (err) {
+      triggerSaveError(`Saved locally, but cloud sync failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
   };
 
-  const handleDeleteFaq = (id: string) => {
+  const handleDeleteFaq = async (id: string) => {
     if (cmsData.faqs.length <= 1) {
-      alert('You must keep at least one FAQ.');
+      triggerSaveError('You must keep at least one FAQ.');
       return;
     }
-    if (!confirm('Are you sure you want to delete this FAQ?')) return;
     const updatedFaqs = cmsData.faqs.filter(f => f.id !== id);
     const updated = { ...cmsData, faqs: updatedFaqs };
     onUpdateCMS(updated);
     saveCMSData(updated);
-    triggerSaveSuccess('FAQ removed.');
+    try {
+      await saveFaqsToCloud(updatedFaqs);
+      triggerSaveSuccess('FAQ removed & synced to live frontend.');
+    } catch (err) {
+      triggerSaveError(`Removed locally, but cloud sync failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
   };
 
   // --- TESTIMONIAL ITEM HANDLERS ---
@@ -535,9 +628,9 @@ export const AdminPage: React.FC<AdminPageProps> = ({
     setEditingTestimonial(test);
   };
 
-  const handleSaveTestimonial = () => {
+  const handleSaveTestimonial = async () => {
     if (!editingTestimonial || !editingTestimonial.clientName.trim() || !editingTestimonial.quote.trim()) {
-      alert('Please provide client name and testimonial quote.');
+      triggerSaveError('Please provide client name and testimonial quote.');
       return;
     }
     let updatedTests: TestimonialItem[];
@@ -550,20 +643,29 @@ export const AdminPage: React.FC<AdminPageProps> = ({
     onUpdateCMS(updated);
     saveCMSData(updated);
     setEditingTestimonial(null);
-    triggerSaveSuccess(isNewTestimonial ? 'New Testimonial added.' : 'Testimonial updated.');
+    try {
+      await saveTestimonialsToCloud(updatedTests);
+      triggerSaveSuccess(isNewTestimonial ? 'New Testimonial added & synced to live frontend.' : 'Testimonial updated & synced to live frontend.');
+    } catch (err) {
+      triggerSaveError(`Saved locally, but cloud sync failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
   };
 
-  const handleDeleteTestimonial = (id: string) => {
+  const handleDeleteTestimonial = async (id: string) => {
     if (cmsData.testimonials.length <= 1) {
-      alert('You must keep at least one testimonial.');
+      triggerSaveError('You must keep at least one testimonial.');
       return;
     }
-    if (!confirm('Are you sure you want to delete this testimonial?')) return;
     const updatedTests = cmsData.testimonials.filter(t => t.id !== id);
     const updated = { ...cmsData, testimonials: updatedTests };
     onUpdateCMS(updated);
     saveCMSData(updated);
-    triggerSaveSuccess('Testimonial removed.');
+    try {
+      await saveTestimonialsToCloud(updatedTests);
+      triggerSaveSuccess('Testimonial removed & synced to live frontend.');
+    } catch (err) {
+      triggerSaveError(`Removed locally, but cloud sync failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
   };
 
   // --- EMAIL SETTINGS SAVE & REAL DELIVERY TEST RUNNER ---
@@ -617,6 +719,8 @@ export const AdminPage: React.FC<AdminPageProps> = ({
     }
     setIsTestingEmail(true);
     setEmailTestFeedback(null);
+    setEmailTestResultStatus(null);
+    setLastTestedPreviewLog(null);
 
     try {
       const { logs: dispatched, realResult } = await sendTestEmail(
@@ -631,23 +735,25 @@ export const AdminPage: React.FC<AdminPageProps> = ({
       );
 
       setEmailLogs(getEmailLogs());
+      setEmailTestResultStatus(realResult.status);
       const statusHeadline =
         realResult.status === 'Delivered'
           ? '✅ Real Quote Test Email Delivered!'
           : realResult.status === 'Pending Activation'
-          ? '⚠️ One-Time Inbox Activation Email Sent!'
-          : '❌ Email Gateway Reported an Issue';
+          ? '⚠️ Action Required: FormSubmit Activation Pending'
+          : '❌ Email Not Sent — Delivery Error';
 
       setEmailTestFeedback(
-        `${statusHeadline}\n• Destination Email(s): ${target}\n• Gateway Status: ${realResult.status}\n• Gateway Details: ${realResult.note}\n• Audit Record: Saved to Cloud Database & Dispatched Log below.`
+        `${statusHeadline}\n• Destination Email(s): ${target}\n• Gateway Status: ${realResult.status}\n• Gateway Details: ${realResult.note}`
       );
       if (realResult.ok) {
         triggerSaveSuccess(`Test quote email sent to ${target}.`);
       }
       if (dispatched.length > 0) {
-        setSelectedEmailPreview(dispatched[0]);
+        setLastTestedPreviewLog(dispatched[0]);
       }
     } catch (err) {
+      setEmailTestResultStatus('Failed');
       setEmailTestFeedback(
         `❌ Failed to run email test: ${err instanceof Error ? err.message : 'Unknown error'}`
       );
@@ -735,14 +841,19 @@ export const AdminPage: React.FC<AdminPageProps> = ({
   };
 
   // --- BRANDING & LOGO / FAVICON ---
-  const handleSaveBranding = () => {
+  const handleSaveBranding = async () => {
     const updated = {
       ...cmsData,
       branding: brandingDraft,
     };
     onUpdateCMS(updated);
     saveCMSData(updated);
-    triggerSaveSuccess('Branding, logos, and contact information updated.');
+    try {
+      await saveBrandingToCloud(brandingDraft);
+      triggerSaveSuccess('Branding, logos, social links & contact info saved & synced to live frontend.');
+    } catch (err) {
+      triggerSaveError(`Saved locally, but cloud sync failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
   };
 
   const handleFileUpload = (field: 'logoUrl' | 'logoWhiteUrl' | 'faviconUrl', e: React.ChangeEvent<HTMLInputElement>) => {
@@ -751,9 +862,30 @@ export const AdminPage: React.FC<AdminPageProps> = ({
 
     const reader = new FileReader();
     reader.onload = () => {
-      if (typeof reader.result === 'string') {
-        setBrandingDraft(prev => ({ ...prev, [field]: reader.result as string }));
+      if (typeof reader.result !== 'string') return;
+      const resultStr = reader.result;
+      if (resultStr.length <= 450000 || file.type === 'image/svg+xml') {
+        setBrandingDraft(prev => ({ ...prev, [field]: resultStr }));
+        return;
       }
+      // Resize large raster images cleanly so they fit under the Firestore 500KB branding limit
+      const img = new window.Image();
+      img.onload = () => {
+        const maxDim = field === 'faviconUrl' ? 128 : 640;
+        const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(img.width * scale));
+        canvas.height = Math.max(1, Math.round(img.height * scale));
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          const compressed = canvas.toDataURL('image/png');
+          setBrandingDraft(prev => ({ ...prev, [field]: compressed }));
+        } else {
+          setBrandingDraft(prev => ({ ...prev, [field]: resultStr }));
+        }
+      };
+      img.src = resultStr;
     };
     reader.readAsDataURL(file);
   };
@@ -1015,11 +1147,17 @@ export const AdminPage: React.FC<AdminPageProps> = ({
         </div>
       </div>
 
-      {/* Save Success Banner */}
+      {/* Save Success / Error Banners */}
       {saveSuccessMessage && (
         <div className="neo-box p-4 rounded-xl flex items-center gap-3 text-xs font-bold text-emerald-800 bg-emerald-50/80 border border-emerald-200">
           <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
           <span>{saveSuccessMessage}</span>
+        </div>
+      )}
+      {saveErrorMessage && (
+        <div className="neo-box p-4 rounded-xl flex items-center gap-3 text-xs font-bold text-red-800 bg-red-50/90 border border-red-200">
+          <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+          <span>{saveErrorMessage}</span>
         </div>
       )}
 
@@ -1364,10 +1502,16 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                   }
                   className="w-full neo-inset rounded-xl px-3.5 py-2.5 text-xs text-slate-800"
                 >
-                  <option value="formsubmit">Direct Email via FormSubmit (No API Key Needed)</option>
-                  <option value="web3forms">Web3Forms API (Recommended Free Access Key)</option>
+                  <option value="google_apps_script">
+                    Direct Gmail via Google Apps Script (Recommended for Gmail — 100% Free)
+                  </option>
+                  <option value="web3forms">Web3Forms API (Free Instant Access Key)</option>
                   <option value="emailjs">EmailJS (Send via Connected Gmail / SMTP)</option>
-                  <option value="webhook">Custom Webhook URL (Zapier / Make / Google Apps Script)</option>
+                  <option value="server_smtp">
+                    Server Gmail / SMTP (.env / Vercel Env Variables)
+                  </option>
+                  <option value="formsubmit">FormSubmit (No API Key — May Need Inbox Activation)</option>
+                  <option value="webhook">Custom Webhook URL (Zapier / Make)</option>
                 </select>
               </div>
 
@@ -1419,15 +1563,18 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                     className="w-full neo-inset rounded-xl px-3.5 py-2.5 text-xs font-mono text-slate-800"
                   />
                   <p className="text-[11px] text-slate-500 mt-1">
-                    Create a free access key for your recipient email at web3forms.com.
+                    Get a free Access Key in 10 seconds at web3forms.com for shafiq.rehman31@gmail.com.
                   </p>
                 </div>
               )}
 
-              {emailSettingsDraft.deliveryProvider === 'webhook' && (
+              {(emailSettingsDraft.deliveryProvider === 'webhook' ||
+                emailSettingsDraft.deliveryProvider === 'google_apps_script') && (
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                    Webhook Endpoint URL *
+                    {emailSettingsDraft.deliveryProvider === 'google_apps_script'
+                      ? 'Google Apps Script Web App URL *'
+                      : 'Webhook Endpoint URL *'}
                   </label>
                   <input
                     type="url"
@@ -1438,12 +1585,69 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                         webhookUrl: e.target.value,
                       })
                     }
-                    placeholder="https://hook.eu1.make.com/..."
+                    placeholder={
+                      emailSettingsDraft.deliveryProvider === 'google_apps_script'
+                        ? 'https://script.google.com/macros/s/.../exec'
+                        : 'https://hook.eu1.make.com/...'
+                    }
                     className="w-full neo-inset rounded-xl px-3.5 py-2.5 text-xs font-mono text-slate-800"
                   />
                 </div>
               )}
             </div>
+
+            {emailSettingsDraft.deliveryProvider === 'google_apps_script' && (
+              <div className="p-4 rounded-2xl neo-inset bg-emerald-50/60 border border-emerald-200 text-xs text-slate-700 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <strong className="text-[#00106b]">
+                    Send Directly Through Your Own Gmail Account (No Third-Party Spam Blocking):
+                  </strong>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard?.writeText(GOOGLE_APPS_SCRIPT_TEMPLATE);
+                      setCopiedScript(true);
+                      setTimeout(() => setCopiedScript(false), 3000);
+                    }}
+                    className="px-3 py-1.5 rounded-lg bg-[#00106b] text-white text-[11px] font-bold cursor-pointer"
+                  >
+                    {copiedScript ? '✓ Copied Gmail Script' : 'Copy Google Apps Script'}
+                  </button>
+                </div>
+                <ol className="list-decimal list-inside space-y-1 text-[11px] leading-relaxed text-slate-700">
+                  <li>Open <strong>script.google.com</strong> logged into your Gmail (e.g. <strong>shafiq.rehman31@gmail.com</strong>) and click <strong>New project</strong>.</li>
+                  <li>Click <strong>Copy Google Apps Script</strong> above and paste it into the editor (replacing any existing code), then save.</li>
+                  <li>Click <strong>Deploy → New deployment → Web app</strong>, set <strong>Who has access</strong> to <strong>Anyone</strong>, authorize Gmail permissions once, and copy the Web App URL (ending in <code>/exec</code>).</li>
+                  <li>Paste that URL into <strong>Google Apps Script Web App URL</strong> above and click <strong>Save Email Settings</strong>.</li>
+                </ol>
+              </div>
+            )}
+
+            {emailSettingsDraft.deliveryProvider === 'server_smtp' && (
+              <div
+                className={`p-3.5 rounded-2xl neo-inset text-xs leading-relaxed border ${
+                  serverSmtpStatus.configured
+                    ? 'bg-emerald-50/80 border-emerald-200 text-emerald-900'
+                    : 'bg-amber-50/90 border-amber-200 text-amber-900'
+                }`}
+              >
+                {serverSmtpStatus.configured ? (
+                  <span>
+                    <strong>Server Gmail / SMTP Active:</strong> Connected via{' '}
+                    <code>{serverSmtpStatus.smtpHost}</code> ({serverSmtpStatus.smtpUser}). Quotes
+                    will deliver straight to your configured recipient inbox(es).
+                  </span>
+                ) : (
+                  <span>
+                    <strong>Server SMTP Not Yet Configured:</strong> To send directly via Gmail SMTP
+                    without browser third-party relays, add <code>SMTP_HOST=smtp.gmail.com</code>,{' '}
+                    <code>SMTP_PORT=465</code>, <code>SMTP_USER=shafiq.rehman31@gmail.com</code>,
+                    and your 16-character Google App Password as <code>SMTP_PASS</code> in your
+                    hosting Environment Variables (Vercel / Node server), then redeploy.
+                  </span>
+                )}
+              </div>
+            )}
 
             {emailSettingsDraft.deliveryProvider === 'emailjs' && (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-4 rounded-2xl neo-inset bg-white/60">
@@ -1519,8 +1723,13 @@ export const AdminPage: React.FC<AdminPageProps> = ({
             )}
 
             {emailSettingsDraft.deliveryProvider === 'formsubmit' && (
-              <div className="p-3.5 rounded-2xl neo-inset bg-blue-50/70 border border-blue-100 text-xs text-slate-700 leading-relaxed">
-                <strong className="text-[#00106b]">How Direct Email Works:</strong> Save your recipient email above (for example, <strong>shafiq.rehman31@gmail.com</strong>), then click <strong>Dispatch Test Delivery Now</strong> below. The very first time a new inbox is used, open that inbox (or spam folder) once and click the <strong>Activate Form</strong> link from FormSubmit — after that, every live Quote arrives in your inbox automatically.
+              <div className="p-3.5 rounded-2xl neo-inset bg-amber-50/80 border border-amber-200 text-xs text-amber-950 leading-relaxed space-y-1.5">
+                <div>
+                  <strong className="text-[#00106b]">Note About FormSubmit &amp; Gmail:</strong> FormSubmit requires clicking a 1-time activation link sent from <code>noreply@formsubmit.co</code>. Many Gmail accounts filter or block automated FormSubmit emails.
+                </div>
+                <div>
+                  If you do not receive FormSubmit&apos;s activation email in <strong>shafiq.rehman31@gmail.com</strong> (including Spam / All Mail), switch <strong>Email Delivery Method</strong> above to <strong>Direct Gmail via Google Apps Script</strong> (free, 100% inbox delivery directly from Google) or <strong>Web3Forms API</strong>.
+                </div>
               </div>
             )}
 
@@ -1647,7 +1856,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
 
               <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
                 <div className="text-[11px] text-slate-500">
-                  ⚡ Tests live inbox forwarding using <strong>{emailSettingsDraft.deliveryProvider}</strong> and records the result in Cloud Database.
+                  ⚡ Tests live inbox forwarding using <strong>{emailSettingsDraft.deliveryProvider}</strong> and records the exact gateway response.
                 </div>
                 <button
                   type="button"
@@ -1662,13 +1871,28 @@ export const AdminPage: React.FC<AdminPageProps> = ({
 
               {/* Delivery Test Results Feedback */}
               {emailTestFeedback && (
-                <div className="p-4 rounded-xl neo-inset bg-emerald-50/90 border border-emerald-200 text-emerald-950 font-mono text-[11px] whitespace-pre-wrap leading-relaxed space-y-2">
+                <div
+                  className={`p-4 rounded-xl neo-inset border font-mono text-[11px] whitespace-pre-wrap leading-relaxed space-y-2.5 ${
+                    emailTestResultStatus === 'Delivered'
+                      ? 'bg-emerald-50/90 border-emerald-200 text-emerald-950'
+                      : emailTestResultStatus === 'Pending Activation'
+                      ? 'bg-amber-50/95 border-amber-300 text-amber-950'
+                      : 'bg-red-50/95 border-red-200 text-red-950'
+                  }`}
+                >
                   <div>{emailTestFeedback}</div>
-                  <div className="pt-1">
-                    <span className="font-sans font-bold text-emerald-800">
-                      💡 Click &quot;View HTML&quot; on any logged email below to inspect the rendered quote layout.
-                    </span>
-                  </div>
+                  {lastTestedPreviewLog && (
+                    <div className="pt-1 flex flex-wrap items-center gap-2 font-sans">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedEmailPreview(lastTestedPreviewLog)}
+                        className="px-3 py-1.5 rounded-lg bg-white border border-slate-300 text-[#00106b] text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>View Rendered Email HTML</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -2266,13 +2490,18 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                         Cancel
                       </button>
                       <button
-                        onClick={() => {
+                        onClick={async () => {
                           const updatedSlides = cmsData.heroSlides.map(s => s.id === editingHeroSlide.id ? editingHeroSlide : s);
                           const updatedCMS = { ...cmsData, heroSlides: updatedSlides };
                           onUpdateCMS(updatedCMS);
                           saveCMSData(updatedCMS);
                           setEditingHeroSlide(null);
-                          triggerSaveSuccess('Hero slide updated.');
+                          try {
+                            await saveHeroSlidesToCloud(updatedSlides);
+                            triggerSaveSuccess('Hero slide saved & synced to live frontend.');
+                          } catch (err) {
+                            triggerSaveError(`Saved locally, but cloud sync failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+                          }
                         }}
                         className="neo-btn-orange px-5 py-2 rounded-xl text-xs font-bold cursor-pointer"
                       >

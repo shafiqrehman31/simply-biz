@@ -14,10 +14,8 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, branding }) => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Robust logo resolver: Uses custom CMS data URI if uploaded, otherwise uses the embedded 0-margin high-res white logo
-  const logoWhiteSrc = (branding.logoWhiteUrl && (branding.logoWhiteUrl.startsWith('data:') || branding.logoWhiteUrl.startsWith('blob:')))
-    ? branding.logoWhiteUrl
-    : SIMPLY_BIZ_LOGO_WHITE;
+  // Robust logo resolver: Uses custom CMS white logo URL/data URI if set, otherwise falls back to default white logo
+  const logoWhiteSrc = branding.logoWhiteUrl?.trim() ? branding.logoWhiteUrl : SIMPLY_BIZ_LOGO_WHITE;
 
   return (
     <footer className="bg-[#00106b] text-slate-300 pt-16 pb-12 border-t border-slate-800">
@@ -31,8 +29,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, branding }) => {
                 <img
                   src={logoWhiteSrc}
                   alt={branding.siteName}
-                  className="h-10 sm:h-11 md:h-12 lg:h-[120px] w-auto max-w-[150px] object-cover drop-shadow-sm"
-                  style={{ aspectRatio: '1342 / 772' }}
+                  className="h-20 sm:h-[88px] md:h-24 w-auto max-w-[300px] object-contain object-left drop-shadow-sm"
                 />
               ) : (
                 <span className="text-2xl font-extrabold tracking-tight text-white">
@@ -139,14 +136,6 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, branding }) => {
                   className="hover:text-white transition-colors text-left"
                 >
                   Contact & Location
-                </button>
-              </li>
-              <li>
-                <button
-                  onClick={() => handleNav('admin')}
-                  className="text-slate-400 hover:text-white transition-colors text-left text-xs"
-                >
-                  Admin CMS Panel
                 </button>
               </li>
             </ul>

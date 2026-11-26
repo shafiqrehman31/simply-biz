@@ -92,13 +92,115 @@ service cloud.firestore {
         && data.notificationEmails is string && data.notificationEmails.size() <= 500
         && data.fromName is string && data.fromName.size() <= 120
         && data.subjectPrefix is string && data.subjectPrefix.size() <= 100
-        && data.deliveryProvider is string && (data.deliveryProvider == 'formsubmit' || data.deliveryProvider == 'web3forms' || data.deliveryProvider == 'emailjs' || data.deliveryProvider == 'webhook')
+        && data.deliveryProvider is string && (
+          data.deliveryProvider == 'formsubmit' ||
+          data.deliveryProvider == 'google_apps_script' ||
+          data.deliveryProvider == 'web3forms' ||
+          data.deliveryProvider == 'emailjs' ||
+          data.deliveryProvider == 'webhook' ||
+          data.deliveryProvider == 'server_smtp'
+        )
         && (!('web3formsAccessKey' in data) || (data.web3formsAccessKey is string && data.web3formsAccessKey.size() <= 200))
         && (!('emailjsServiceId' in data) || (data.emailjsServiceId is string && data.emailjsServiceId.size() <= 150))
         && (!('emailjsTemplateId' in data) || (data.emailjsTemplateId is string && data.emailjsTemplateId.size() <= 150))
         && (!('emailjsCustomerTemplateId' in data) || (data.emailjsCustomerTemplateId is string && data.emailjsCustomerTemplateId.size() <= 150))
         && (!('emailjsPublicKey' in data) || (data.emailjsPublicKey is string && data.emailjsPublicKey.size() <= 150))
         && (!('webhookUrl' in data) || (data.webhookUrl is string && data.webhookUrl.size() <= 500))
+        && (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() <= 100));
+    }
+
+    function isValidBranding(data) {
+      return data.keys().hasAll(['siteName', 'tagline', 'siteEmail', 'sitePhone', 'whatsappNumber', 'address', 'logoUrl', 'logoWhiteUrl', 'faviconUrl', 'primaryColor', 'accentColor'])
+        && data.keys().hasOnly(['siteName', 'tagline', 'siteEmail', 'sitePhone', 'whatsappNumber', 'address', 'logoUrl', 'logoWhiteUrl', 'faviconUrl', 'primaryColor', 'accentColor', 'facebookUrl', 'instagramUrl', 'linkedinUrl', 'updatedAt'])
+        && data.siteName is string && data.siteName.size() > 0 && data.siteName.size() <= 200
+        && data.tagline is string && data.tagline.size() <= 300
+        && data.siteEmail is string && data.siteEmail.size() <= 200
+        && data.sitePhone is string && data.sitePhone.size() <= 50
+        && data.whatsappNumber is string && data.whatsappNumber.size() <= 50
+        && data.address is string && data.address.size() <= 500
+        && data.logoUrl is string && data.logoUrl.size() <= 500000
+        && data.logoWhiteUrl is string && data.logoWhiteUrl.size() <= 500000
+        && data.faviconUrl is string && data.faviconUrl.size() <= 500000
+        && data.primaryColor is string && data.primaryColor.size() <= 50
+        && data.accentColor is string && data.accentColor.size() <= 50
+        && (!('facebookUrl' in data) || (data.facebookUrl is string && data.facebookUrl.size() <= 500))
+        && (!('instagramUrl' in data) || (data.instagramUrl is string && data.instagramUrl.size() <= 500))
+        && (!('linkedinUrl' in data) || (data.linkedinUrl is string && data.linkedinUrl.size() <= 500))
+        && (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() <= 100));
+    }
+
+    function isValidHeroSlidesDoc(data) {
+      return data.keys().hasAll(['items'])
+        && data.keys().hasOnly(['items', 'updatedAt'])
+        && data.items is list
+        && data.items.size() >= 1 && data.items.size() <= 30
+        && data.items[0] is map
+        && (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() <= 100));
+    }
+
+    function isValidServicesDoc(data) {
+      return data.keys().hasAll(['items'])
+        && data.keys().hasOnly(['items', 'updatedAt'])
+        && data.items is list
+        && data.items.size() >= 1 && data.items.size() <= 100
+        && data.items[0] is map
+        && (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() <= 100));
+    }
+
+    function isValidFaqsDoc(data) {
+      return data.keys().hasAll(['items'])
+        && data.keys().hasOnly(['items', 'updatedAt'])
+        && data.items is list
+        && data.items.size() >= 1 && data.items.size() <= 100
+        && data.items[0] is map
+        && (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() <= 100));
+    }
+
+    function isValidTestimonialsDoc(data) {
+      return data.keys().hasAll(['items'])
+        && data.keys().hasOnly(['items', 'updatedAt'])
+        && data.items is list
+        && data.items.size() >= 1 && data.items.size() <= 100
+        && data.items[0] is map
+        && (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() <= 100));
+    }
+
+    function isValidAboutContent(data) {
+      return data.keys().hasAll(['badgeText', 'headline', 'subheadline', 'imageUrl', 'guidingPrincipleTitle', 'guidingPrincipleText', 'guidingPrincipleBullets', 'pillars'])
+        && data.keys().hasOnly(['badgeText', 'headline', 'subheadline', 'imageUrl', 'guidingPrincipleTitle', 'guidingPrincipleText', 'guidingPrincipleBullets', 'pillars', 'updatedAt'])
+        && data.badgeText is string && data.badgeText.size() <= 100
+        && data.headline is string && data.headline.size() > 0 && data.headline.size() <= 300
+        && data.subheadline is string && data.subheadline.size() <= 2000
+        && data.imageUrl is string && data.imageUrl.size() <= 500000
+        && data.guidingPrincipleTitle is string && data.guidingPrincipleTitle.size() <= 300
+        && data.guidingPrincipleText is string && data.guidingPrincipleText.size() <= 2000
+        && data.guidingPrincipleBullets is list && data.guidingPrincipleBullets.size() <= 20
+        && (data.guidingPrincipleBullets.size() == 0 || data.guidingPrincipleBullets[0] is string)
+        && data.pillars is list && data.pillars.size() <= 20
+        && (data.pillars.size() == 0 || data.pillars[0] is map)
+        && (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() <= 100));
+    }
+
+    function isValidWhyUsContent(data) {
+      return data.keys().hasAll(['badgeText', 'headline', 'subheadline', 'guaranteeTitle', 'guaranteeDesc', 'steps'])
+        && data.keys().hasOnly(['badgeText', 'headline', 'subheadline', 'guaranteeTitle', 'guaranteeDesc', 'steps', 'updatedAt'])
+        && data.badgeText is string && data.badgeText.size() <= 100
+        && data.headline is string && data.headline.size() > 0 && data.headline.size() <= 300
+        && data.subheadline is string && data.subheadline.size() <= 2000
+        && data.guaranteeTitle is string && data.guaranteeTitle.size() <= 300
+        && data.guaranteeDesc is string && data.guaranteeDesc.size() <= 2000
+        && data.steps is list && data.steps.size() <= 30
+        && (data.steps.size() == 0 || data.steps[0] is map)
+        && (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() <= 100));
+    }
+
+    function isValidServicesContent(data) {
+      return data.keys().hasAll(['badgeText', 'headline', 'subheadline', 'estimatorNote'])
+        && data.keys().hasOnly(['badgeText', 'headline', 'subheadline', 'estimatorNote', 'updatedAt'])
+        && data.badgeText is string && data.badgeText.size() <= 100
+        && data.headline is string && data.headline.size() > 0 && data.headline.size() <= 300
+        && data.subheadline is string && data.subheadline.size() <= 2000
+        && data.estimatorNote is string && data.estimatorNote.size() <= 2000
         && (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() <= 100));
     }
 
@@ -129,13 +231,21 @@ service cloud.firestore {
       allow delete: if isValidId(videoId);
     }
 
-    // Site Config Collection: Shared video section copy, seed state, and email notification settings
+    // Site Config Collection: Shared CMS content, video section copy, seed state, and email notification settings
     match /siteConfig/{configId} {
       allow read: if true;
       allow create, update: if isValidId(configId) && (
         (configId == 'videoSection' && isValidVideoSectionContent(incoming())) ||
         (configId == 'videoDefaults' && isValidVideoDefaults(incoming())) ||
-        (configId == 'emailSettings' && isValidEmailSettings(incoming()))
+        (configId == 'emailSettings' && isValidEmailSettings(incoming())) ||
+        (configId == 'branding' && isValidBranding(incoming())) ||
+        (configId == 'heroSlides' && isValidHeroSlidesDoc(incoming())) ||
+        (configId == 'services' && isValidServicesDoc(incoming())) ||
+        (configId == 'faqs' && isValidFaqsDoc(incoming())) ||
+        (configId == 'testimonials' && isValidTestimonialsDoc(incoming())) ||
+        (configId == 'aboutContent' && isValidAboutContent(incoming())) ||
+        (configId == 'whyUsContent' && isValidWhyUsContent(incoming())) ||
+        (configId == 'servicesContent' && isValidServicesContent(incoming()))
       );
       allow delete: if false;
     }

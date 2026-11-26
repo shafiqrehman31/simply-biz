@@ -18,10 +18,8 @@ export const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // Robust logo resolver: Uses custom CMS data URI if uploaded, otherwise uses the embedded 0-margin high-res logo
-  const logoSrc = (branding.logoUrl && (branding.logoUrl.startsWith('data:') || branding.logoUrl.startsWith('blob:')))
-    ? branding.logoUrl
-    : SIMPLY_BIZ_LOGO_COLOR;
+  // Robust logo resolver: Uses custom CMS logo URL/data URI if set, otherwise falls back to default high-res logo
+  const logoSrc = branding.logoUrl?.trim() ? branding.logoUrl : SIMPLY_BIZ_LOGO_COLOR;
 
   const navLinks: { label: string; route: PageRoute }[] = [
     { label: 'Home', route: 'home' },
@@ -40,9 +38,9 @@ export const Navbar: React.FC<NavbarProps> = ({
   return (
     <header className="sticky top-0 z-50 bg-[#f0f4f8]/95 backdrop-blur-md border-b border-white/60 transition-colors shadow-xs">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-20 sm:h-22 gap-8">
+        <div className="flex items-center justify-between h-24 sm:h-28 lg:h-[124px] gap-8">
           
-          {/* Zone 1: Standard Brand Logo with perfect responsive sizing across mobile, tablet & desktop */}
+          {/* Zone 1: Standard Brand Logo with doubled responsive sizing across mobile, tablet & desktop */}
           <div className="flex items-center shrink-0">
             <button
               onClick={() => handleNavClick('home')}
@@ -53,8 +51,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <img
                   src={logoSrc}
                   alt={branding.siteName}
-                  className="h-110 sm:h-111 md:h-12 lg:h-[120px] w-auto max-w-[120px] sm:max-w-[140px] md:max-w-[160px] object-contain transition-transform group-hover:scale-105 drop-shadow-xs"
-                  style={{ aspectRatio: '1342 / 772' }}
+                  className="h-20 sm:h-[88px] md:h-24 lg:h-[104px] w-auto max-w-[240px] sm:max-w-[280px] md:max-w-[320px] object-contain object-left transition-transform group-hover:scale-105 drop-shadow-xs"
                 />
               ) : (
                 <div className="flex items-center gap-2.5">

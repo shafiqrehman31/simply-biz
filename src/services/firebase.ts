@@ -13,7 +13,22 @@ import {
   getDocFromServer 
 } from 'firebase/firestore';
 import firebaseConfig from './firebaseConfig';
-import type { Lead, EmailLog, EmailSettings, VideoItem, VideoSectionContent } from '../types';
+import type {
+  Lead,
+  EmailLog,
+  EmailSettings,
+  VideoItem,
+  VideoSectionContent,
+  SiteBranding,
+  HeroSlide,
+  ServiceItem,
+  FAQItem,
+  TestimonialItem,
+  AboutPageContent,
+  WhyUsPageContent,
+  ServicesPageContent,
+  CMSData,
+} from '../types';
 
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
@@ -431,6 +446,230 @@ export function subscribeToFirestoreEmailSettings(
     );
   } catch (err) {
     console.warn('subscribeToFirestoreEmailSettings error:', err);
+    return () => {};
+  }
+}
+
+function sanitizeBrandingForFirestore(branding: SiteBranding): Record<string, unknown> {
+  const payload: Record<string, unknown> = {
+    siteName: (branding.siteName || 'Simply Biz').slice(0, 200),
+    tagline: (branding.tagline || '').slice(0, 300),
+    siteEmail: (branding.siteEmail || '').slice(0, 200),
+    sitePhone: (branding.sitePhone || '').slice(0, 50),
+    whatsappNumber: (branding.whatsappNumber || '').slice(0, 50),
+    address: (branding.address || '').slice(0, 500),
+    logoUrl: (branding.logoUrl || '').slice(0, 500000),
+    logoWhiteUrl: (branding.logoWhiteUrl || '').slice(0, 500000),
+    faviconUrl: (branding.faviconUrl || '').slice(0, 500000),
+    primaryColor: (branding.primaryColor || '#00106b').slice(0, 50),
+    accentColor: (branding.accentColor || '#f85508').slice(0, 50),
+    facebookUrl: (branding.facebookUrl || '').slice(0, 500),
+    instagramUrl: (branding.instagramUrl || '').slice(0, 500),
+    linkedinUrl: (branding.linkedinUrl || '').slice(0, 500),
+    updatedAt: new Date().toISOString(),
+  };
+  return payload;
+}
+
+export async function saveBrandingToFirestore(branding: SiteBranding): Promise<void> {
+  try {
+    await setDoc(doc(db, 'siteConfig', 'branding'), sanitizeBrandingForFirestore(branding));
+  } catch (err) {
+    handleFirestoreError(err, OperationType.WRITE, 'siteConfig/branding');
+  }
+}
+
+export async function saveHeroSlidesToFirestore(slides: HeroSlide[]): Promise<void> {
+  const safeItems = (slides || []).slice(0, 30).map((s, idx) => ({
+    id: String(s.id || `slide-${idx + 1}`).slice(0, 128),
+    title: String(s.title || '').slice(0, 300),
+    highlightText: String(s.highlightText || '').slice(0, 200),
+    subtitle: String(s.subtitle || '').slice(0, 1000),
+    imageUrl: String(s.imageUrl || '').slice(0, 500000),
+    ctaText: String(s.ctaText || 'Explore').slice(0, 100),
+    ctaAction: s.ctaAction || 'services',
+    secondaryCtaText: String(s.secondaryCtaText || 'Free Consultation').slice(0, 100),
+    badgeText: String(s.badgeText || '').slice(0, 150),
+    order: typeof s.order === 'number' ? s.order : idx + 1,
+    isActive: Boolean(s.isActive),
+  }));
+  if (safeItems.length === 0) return;
+  try {
+    await setDoc(doc(db, 'siteConfig', 'heroSlides'), {
+      items: safeItems,
+      updatedAt: new Date().toISOString(),
+    });
+  } catch (err) {
+    handleFirestoreError(err, OperationType.WRITE, 'siteConfig/heroSlides');
+  }
+}
+
+export async function saveServicesToFirestore(services: ServiceItem[]): Promise<void> {
+  const safeItems = (services || []).slice(0, 100).map((svc, idx) => ({
+    id: String(svc.id || `service-${idx + 1}`).slice(0, 128),
+    title: String(svc.title || '').slice(0, 200),
+    shortDesc: String(svc.shortDesc || '').slice(0, 1000),
+    fullDesc: String(svc.fullDesc || '').slice(0, 4000),
+    category: svc.category || 'Mainland',
+    features: Array.isArray(svc.features) ? svc.features.slice(0, 20).map((f) => String(f).slice(0, 300)) : [],
+    timeline: String(svc.timeline || '').slice(0, 150),
+    startingPrice: String(svc.startingPrice || '').slice(0, 150),
+    iconName: String(svc.iconName || 'Building2').slice(0, 80),
+    popular: Boolean(svc.popular),
+  }));
+  if (safeItems.length === 0) return;
+  try {
+    await setDoc(doc(db, 'siteConfig', 'services'), {
+      items: safeItems,
+      updatedAt: new Date().toISOString(),
+    });
+  } catch (err) {
+    handleFirestoreError(err, OperationType.WRITE, 'siteConfig/services');
+  }
+}
+
+export async function saveFaqsToFirestore(faqs: FAQItem[]): Promise<void> {
+  const safeItems = (faqs || []).slice(0, 100).map((f, idx) => ({
+    id: String(f.id || `faq-${idx + 1}`).slice(0, 128),
+    question: String(f.question || '').slice(0, 500),
+    answer: String(f.answer || '').slice(0, 3000),
+    category: f.category || 'General',
+  }));
+  if (safeItems.length === 0) return;
+  try {
+    await setDoc(doc(db, 'siteConfig', 'faqs'), {
+      items: safeItems,
+      updatedAt: new Date().toISOString(),
+    });
+  } catch (err) {
+    handleFirestoreError(err, OperationType.WRITE, 'siteConfig/faqs');
+  }
+}
+
+export async function saveTestimonialsToFirestore(testimonials: TestimonialItem[]): Promise<void> {
+  const safeItems = (testimonials || []).slice(0, 100).map((t, idx) => ({
+    id: String(t.id || `test-${idx + 1}`).slice(0, 128),
+    clientName: String(t.clientName || '').slice(0, 200),
+    role: String(t.role || '').slice(0, 200),
+    companyName: String(t.companyName || '').slice(0, 200),
+    jurisdiction: String(t.jurisdiction || '').slice(0, 200),
+    quote: String(t.quote || '').slice(0, 3000),
+    rating: typeof t.rating === 'number' ? Math.min(5, Math.max(1, t.rating)) : 5,
+    ...(t.avatarUrl ? { avatarUrl: String(t.avatarUrl).slice(0, 2000) } : {}),
+  }));
+  if (safeItems.length === 0) return;
+  try {
+    await setDoc(doc(db, 'siteConfig', 'testimonials'), {
+      items: safeItems,
+      updatedAt: new Date().toISOString(),
+    });
+  } catch (err) {
+    handleFirestoreError(err, OperationType.WRITE, 'siteConfig/testimonials');
+  }
+}
+
+export async function saveAboutContentToFirestore(content: AboutPageContent): Promise<void> {
+  try {
+    await setDoc(doc(db, 'siteConfig', 'aboutContent'), {
+      badgeText: (content.badgeText || '').slice(0, 100),
+      headline: (content.headline || 'About Simply Biz').slice(0, 300),
+      subheadline: (content.subheadline || '').slice(0, 2000),
+      imageUrl: (content.imageUrl || '').slice(0, 500000),
+      guidingPrincipleTitle: (content.guidingPrincipleTitle || '').slice(0, 300),
+      guidingPrincipleText: (content.guidingPrincipleText || '').slice(0, 2000),
+      guidingPrincipleBullets: (content.guidingPrincipleBullets || []).slice(0, 20).map((b) => String(b).slice(0, 500)),
+      pillars: (content.pillars || []).slice(0, 20).map((p) => ({
+        title: String(p.title || '').slice(0, 200),
+        desc: String(p.desc || '').slice(0, 1000),
+      })),
+      updatedAt: new Date().toISOString(),
+    });
+  } catch (err) {
+    handleFirestoreError(err, OperationType.WRITE, 'siteConfig/aboutContent');
+  }
+}
+
+export async function saveWhyUsContentToFirestore(content: WhyUsPageContent): Promise<void> {
+  try {
+    await setDoc(doc(db, 'siteConfig', 'whyUsContent'), {
+      badgeText: (content.badgeText || '').slice(0, 100),
+      headline: (content.headline || 'Why Choose Simply Biz').slice(0, 300),
+      subheadline: (content.subheadline || '').slice(0, 2000),
+      guaranteeTitle: (content.guaranteeTitle || '').slice(0, 300),
+      guaranteeDesc: (content.guaranteeDesc || '').slice(0, 2000),
+      steps: (content.steps || []).slice(0, 30).map((s) => ({
+        num: String(s.num || '').slice(0, 20),
+        title: String(s.title || '').slice(0, 200),
+        desc: String(s.desc || '').slice(0, 1000),
+      })),
+      updatedAt: new Date().toISOString(),
+    });
+  } catch (err) {
+    handleFirestoreError(err, OperationType.WRITE, 'siteConfig/whyUsContent');
+  }
+}
+
+export async function saveServicesContentToFirestore(content: ServicesPageContent): Promise<void> {
+  try {
+    await setDoc(doc(db, 'siteConfig', 'servicesContent'), {
+      badgeText: (content.badgeText || '').slice(0, 100),
+      headline: (content.headline || 'UAE Corporate Solutions').slice(0, 300),
+      subheadline: (content.subheadline || '').slice(0, 2000),
+      estimatorNote: (content.estimatorNote || '').slice(0, 2000),
+      updatedAt: new Date().toISOString(),
+    });
+  } catch (err) {
+    handleFirestoreError(err, OperationType.WRITE, 'siteConfig/servicesContent');
+  }
+}
+
+/**
+ * Subscribe in real-time to all public CMS documents in siteConfig collection
+ */
+export function subscribeToPublicSiteConfig(
+  onPatch: (patch: Partial<CMSData>) => void
+): () => void {
+  try {
+    const colRef = collection(db, 'siteConfig');
+    return onSnapshot(
+      colRef,
+      (snapshot) => {
+        const patch: Partial<CMSData> = {};
+        snapshot.forEach((docSnap) => {
+          const id = docSnap.id;
+          const data = docSnap.data();
+          if (id === 'branding') {
+            patch.branding = data as SiteBranding;
+          } else if (id === 'heroSlides' && Array.isArray(data.items) && data.items.length > 0) {
+            patch.heroSlides = data.items as HeroSlide[];
+          } else if (id === 'services' && Array.isArray(data.items) && data.items.length > 0) {
+            patch.services = data.items as ServiceItem[];
+          } else if (id === 'faqs' && Array.isArray(data.items) && data.items.length > 0) {
+            patch.faqs = data.items as FAQItem[];
+          } else if (id === 'testimonials' && Array.isArray(data.items) && data.items.length > 0) {
+            patch.testimonials = data.items as TestimonialItem[];
+          } else if (id === 'aboutContent') {
+            patch.aboutContent = data as AboutPageContent;
+          } else if (id === 'whyUsContent') {
+            patch.whyUsContent = data as WhyUsPageContent;
+          } else if (id === 'servicesContent') {
+            patch.servicesContent = data as ServicesPageContent;
+          } else if (id === 'videoSection') {
+            patch.videoSectionContent = data as VideoSectionContent;
+          } else if (id === 'emailSettings') {
+            patch.emailSettings = data as EmailSettings;
+          }
+        });
+        if (Object.keys(patch).length > 0) {
+          onPatch(patch);
+        }
+      },
+      (error) => {
+        console.warn('Firestore siteConfig subscription warning:', error);
+      }
+    );
+  } catch (err) {
+    console.warn('subscribeToPublicSiteConfig error:', err);
     return () => {};
   }
 }
